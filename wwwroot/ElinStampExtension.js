@@ -44,10 +44,11 @@
   // ----------------------------- Stamp definition loader -----------------------------
   class StampLibrary {
     constructor(url) {
-      this.url = url;
+      const raw = String(url || '/stamps.json').trim();
+      this.url = raw.startsWith('/') ? raw : `/${raw}`;
       this.loaded = false;
       this.error = null;
-      this.map = new Map(); // key -> { key, label, viewBox, svg }
+      this.map = new Map(); // key -> { key, label, viewBox, svg, accMarkupSvg, width, height }
       this.list = []; // array of defs sorted by key
     }
 
@@ -58,17 +59,40 @@
       this.list = [];
 
       try {
-        const res = await fetch(this.url, { cache: 'no-store' });
-        if (!res.ok) throw new Error(`HTTP ${res.status} beim Laden von ${this.url}`);
-        const json = await res.json();
+        const cacheBustedUrl = this._withCacheBuster(this.url);
+        const res = await fetch(cacheBustedUrl, { cache: 'no-store' });
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status} ${res.statusText} beim Laden von ${cacheBustedUrl}`);
+        }
+
+        let json;
+        try {
+          json = await res.json();
+        } catch (parseErr) {
+          console.error('[ELIN] stamps.json JSON Parse Error', {
+            url: cacheBustedUrl,
+            message: parseErr && parseErr.message ? parseErr.message : String(parseErr)
+          });
+          throw new Error(`JSON Parse Error in ${cacheBustedUrl}: ${parseErr.message || parseErr}`);
+        }
 
         const addDef = (key, def) => {
-          if (!key || !def || !def.viewBox || !def.svg) return;
+          if (!key || !def) return;
+
+          const normalized = this._normalizeSvgDefinition(def);
+          if (!normalized) {
+            console.warn(`[ELIN] Ungueltige Stamp-Definition uebersprungen: ${key}`);
+            return;
+          }
+
           this.map.set(String(key), {
             key: String(key),
             label: def.label || '',
-            viewBox: def.viewBox,
-            svg: def.svg
+            viewBox: normalized.viewBox,
+            svg: normalized.svg,
+            accMarkupSvg: normalized.accMarkupSvg,
+            width: normalized.width,
+            height: normalized.height
           });
         };
 
@@ -85,8 +109,51 @@
       } catch (e) {
         this.error = e;
         this.loaded = false;
+        console.error('[ELIN] stamps.json konnte nicht geladen werden', {
+          url: this.url,
+          message: e && e.message ? e.message : String(e)
+        });
       }
       return this.loaded;
+    }
+
+    _withCacheBuster(url) {
+      const sep = String(url).includes('?') ? '&' : '?';
+      return `${url}${sep}v=${Date.now()}`;
+    }
+
+    _normalizeSvgDefinition(def) {
+      const rawViewBox = typeof def.viewBox === 'string' ? def.viewBox.trim() : '';
+      const rawSvg = typeof def.svg === 'string' ? def.svg.trim() : '';
+      const rawAccMarkupSvg = typeof def.accMarkupSvg === 'string' ? def.accMarkupSvg.trim() : '';
+
+      const svgParts = this._extractSvgParts(rawSvg || rawAccMarkupSvg);
+      const viewBox = rawViewBox || svgParts.viewBox || '';
+      const svg = svgParts.innerSvg || '';
+
+      if (!viewBox || !svg) return null;
+
+      const accMarkupSvg = rawAccMarkupSvg || `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">${svg}</svg>`;
+      const width = Number(def.width) || 0;
+      const height = Number(def.height) || 0;
+
+      return { viewBox, svg, accMarkupSvg, width, height };
+    }
+
+    _extractSvgParts(svgText) {
+      const text = typeof svgText === 'string' ? svgText.trim() : '';
+      if (!text) return { viewBox: '', innerSvg: '' };
+
+      const svgTagMatch = text.match(/<svg\b([^>]*)>([\s\S]*?)<\/svg>/i);
+      if (!svgTagMatch) {
+        return { viewBox: '', innerSvg: text };
+      }
+
+      const attrs = svgTagMatch[1] || '';
+      const innerSvg = (svgTagMatch[2] || '').trim();
+      const viewBoxMatch = attrs.match(/viewBox\s*=\s*["']([^"']+)["']/i);
+      const viewBox = viewBoxMatch ? String(viewBoxMatch[1]).trim() : '';
+      return { viewBox, innerSvg };
     }
 
     get(key) { return this.map.get(String(key)) || null; }
@@ -123,6 +190,8 @@
       this._placing = false;
       this._dragState = null;
       this._defaultIssueType = 'allgemein';
+      this._issueSubtypeOptions = [];
+      this._defaultIssueSubtypeId = null;
       this._pickerPanel = null;
       this._propsPanel = null;
       this._launcherBtn = null;
@@ -180,9 +249,10 @@
         }
       });
 
-      // Initial load (async, non-blocking)
-      this._ensureLibraryLoaded();
-      this._onModelRootLoaded();
+      // Initialisiere model-abhaengige Daten erst, wenn das Model wirklich da ist.
+      if (this.viewer.model) {
+        this._onModelRootLoaded();
+      }
 
       return true;
     }
@@ -249,7 +319,8 @@
     }
 
     _getAcc2DPosition(worldPos) {
-      // Viewer world -> sheet coordinates for TwoDVectorPushpin
+      // Viewer world -> sheet coordinates for TwoDVectorPushpin.
+      // Keep decimal precision to avoid collapsing to {x:1,y:0} after rounding.
       const model = this.viewer && this.viewer.model;
       if (!model) return this._toPlainPos(worldPos);
 
@@ -266,7 +337,61 @@
         y = Number(worldPos.y) - Number(bbox.min.y);
       }
 
-      return { x: this._toInt(x), y: this._toInt(y), z: 0 };
+      const toPrecise = (n) => {
+        const v = Number(n);
+        if (!Number.isFinite(v)) return 0;
+        return Math.round(v * 1000) / 1000;
+      };
+
+      return { x: toPrecise(x), y: toPrecise(y), z: 0 };
+    }
+
+    _getAcc2DNormalizedPosition(worldPos) {
+      const model = this.viewer && this.viewer.model;
+      if (!model) return { x: 0, y: 0, z: 0 };
+
+      const clamp01 = (n) => Math.max(0, Math.min(1, n));
+
+      // Preferred: use page metadata + page-to-model transform (invert to model->page)
+      try {
+        const data = model.getData && model.getData();
+        const md = data && data.metadata ? data.metadata : null;
+        const pageW = Number(md && (md.page_width || md.pageWidth || md.width));
+        const pageH = Number(md && (md.page_height || md.pageHeight || md.height));
+
+        const pageToModel = model.getPageToModelTransform && model.getPageToModelTransform();
+        if (pageToModel && Number.isFinite(pageW) && Number.isFinite(pageH) && pageW > 0 && pageH > 0) {
+          const m = new THREE.Matrix4();
+          if (pageToModel instanceof THREE.Matrix4) {
+            m.copy(pageToModel);
+          } else if (Array.isArray(pageToModel) && pageToModel.length === 16) {
+            m.fromArray(pageToModel);
+          }
+
+          const inv = new THREE.Matrix4().copy(m).invert();
+          const p = new THREE.Vector3(Number(worldPos.x) || 0, Number(worldPos.y) || 0, Number(worldPos.z) || 0).applyMatrix4(inv);
+
+          return {
+            x: Math.round(clamp01(p.x / pageW) * 1000000) / 1000000,
+            y: Math.round(clamp01(p.y / pageH) * 1000000) / 1000000,
+            z: 0
+          };
+        }
+      } catch (e) {
+        // fallback below
+      }
+
+      // Fallback: normalize against model bbox in sheet space.
+      const abs = this._getAcc2DPosition(worldPos);
+      const bbox = model.getBoundingBox && model.getBoundingBox();
+      const w = bbox ? Math.max(1e-9, Number(bbox.max.x) - Number(bbox.min.x)) : 1;
+      const h = bbox ? Math.max(1e-9, Number(bbox.max.y) - Number(bbox.min.y)) : 1;
+
+      return {
+        x: Math.round(clamp01(Number(abs.x) / w) * 1000000) / 1000000,
+        y: Math.round(clamp01(Number(abs.y) / h) * 1000000) / 1000000,
+        z: 0
+      };
     }
 
     _toPlainPos(v) {
@@ -525,10 +650,7 @@
 
         <div class="elin-properties-panel__row">
           <div class="elin-properties-panel__label">ACC Typ</div>
-          <select class="elin-select" data-role="issuetype">
-            <option value="allgemein">Allgemein</option>
-            <option value="mangel">Mangel</option>
-          </select>
+          <select class="elin-select" data-role="issuetype"></select>
         </div>
 
         <div class="elin-properties-panel__row">
@@ -564,10 +686,13 @@
       });
 
       const issueTypeSel = panel.querySelector('[data-role="issuetype"]');
+      issueTypeSel.innerHTML = '<option value="allgemein">Allgemein</option><option value="mangel">Mangel</option>';
       issueTypeSel.addEventListener('change', () => {
         const v = issueTypeSel.value;
         this._defaultIssueType = v;
+        this._defaultIssueSubtypeId = v;
         for (const s of this._selected) s.issueType = v;
+        for (const s of this._selected) s.issueSubtypeId = v;
         this._saveStampsToLocal();
       });
 
@@ -593,13 +718,17 @@
         return;
       }
 
+      if (!this._issueSubtypeOptions || this._issueSubtypeOptions.length === 0) {
+        this._loadIssueSubtypeOptions();
+      }
+
       this._propsPanel.style.display = 'flex';
       this._propsPanel.querySelector('[data-role="selcount"]').textContent = String(this._selected.length);
 
-      const types = new Set(this._selected.map((s) => s.issueType || 'allgemein'));
+      const types = new Set(this._selected.map((s) => s.issueSubtypeId || s.issueType || this._defaultIssueSubtypeId || 'allgemein'));
       const issueSel = this._propsPanel.querySelector('[data-role="issuetype"]');
       if (types.size === 1) issueSel.value = Array.from(types)[0];
-      else issueSel.value = this._defaultIssueType || 'allgemein';
+      else issueSel.value = this._defaultIssueSubtypeId || this._defaultIssueType || 'allgemein';
 
       const scales = this._selected.map((s) => (typeof s.scale === 'number' ? s.scale : 1));
       const avg = scales.reduce((a, b) => a + b, 0) / Math.max(1, scales.length);
@@ -611,7 +740,133 @@
       this._clearAllStampsDom();
       this._clearSelection();
       this._loadStampsFromLocal();
+      this._loadIssueSubtypeOptions();
       this._updateAllStamps();
+      this._ensureLibraryLoaded();
+    }
+
+    _resolveProjectId() {
+      const treeCtx = (window.ELIN_TREE_CTX && typeof window.ELIN_TREE_CTX === 'object') ? window.ELIN_TREE_CTX : {};
+      const fromTree = treeCtx.projectId ? String(treeCtx.projectId).trim() : '';
+      if (fromTree) return fromTree;
+
+      const fromUrl = (() => {
+        try {
+          const path = `${window.location.pathname || ''}${window.location.search || ''}${window.location.hash || ''}`;
+          const m = path.match(/projects\/(b\.[0-9a-f-]{8,})/i);
+          if (m && m[1]) return m[1];
+
+          const query = new URLSearchParams(window.location.search || '');
+          return query.get('projectId') || query.get('bimProjectId') || '';
+        } catch (e) {
+          return '';
+        }
+      })();
+      if (fromUrl) return fromUrl;
+
+      const model = this.viewer && this.viewer.model;
+      const docNode = model && model.getDocumentNode ? model.getDocumentNode() : null;
+      const rawConfig = docNode && docNode.getRawConfig ? docNode.getRawConfig() : null;
+      const seedUrn = rawConfig && rawConfig.seedURN ? String(rawConfig.seedURN) : '';
+      const data = model && model.getData ? model.getData() : null;
+      const fromModelCandidates = [
+        data && data.projectId,
+        data && data.loadOptions && data.loadOptions.projectId,
+        data && data.metadata && data.metadata.projectId,
+        model && model.myData && model.myData.projectId,
+        model && model.myData && model.myData.loadOptions && model.myData.loadOptions.projectId,
+        rawConfig && rawConfig.projectId,
+        rawConfig && rawConfig.project,
+        rawConfig && rawConfig['x-ads-project-id']
+      ];
+
+      for (const candidate of fromModelCandidates) {
+        const value = candidate ? String(candidate).trim() : '';
+        if (value) return value;
+      }
+
+      if (seedUrn) {
+        const seedMatch = seedUrn.match(/projects\/(b\.[0-9a-f-]{8,})/i);
+        if (seedMatch && seedMatch[1]) return seedMatch[1];
+      }
+
+      return null;
+    }
+
+    _resolveHubId() {
+      const treeCtx = (window.ELIN_TREE_CTX && typeof window.ELIN_TREE_CTX === 'object') ? window.ELIN_TREE_CTX : {};
+      const fromTree = treeCtx.hubId ? String(treeCtx.hubId).trim() : '';
+      if (fromTree) return fromTree;
+
+      const fromUrl = (() => {
+        try {
+          const path = `${window.location.pathname || ''}${window.location.search || ''}${window.location.hash || ''}`;
+          const m = path.match(/hubs\/(b\.[0-9a-f-]{8,})/i);
+          if (m && m[1]) return m[1];
+          const query = new URLSearchParams(window.location.search || '');
+          return query.get('hubId') || query.get('bimHubId') || '';
+        } catch (e) {
+          return '';
+        }
+      })();
+      if (fromUrl) return fromUrl;
+
+      const model = this.viewer && this.viewer.model;
+      const data = model && model.getData ? model.getData() : null;
+      const candidates = [
+        data && data.hubId,
+        data && data.loadOptions && data.loadOptions.hubId,
+        data && data.metadata && data.metadata.hubId,
+        model && model.myData && model.myData.hubId,
+        model && model.myData && model.myData.loadOptions && model.myData.loadOptions.hubId
+      ];
+      for (const candidate of candidates) {
+        const value = candidate ? String(candidate).trim() : '';
+        if (value) return value;
+      }
+      return null;
+    }
+
+    async _loadIssueSubtypeOptions() {
+      try {
+        const ctx = (window.ELIN_TREE_CTX && typeof window.ELIN_TREE_CTX === 'object') ? window.ELIN_TREE_CTX : {};
+        const hubId = ctx.hubId ? String(ctx.hubId).trim() : '';
+        const projectId = ctx.projectId ? String(ctx.projectId).trim() : '';
+        if (!hubId || !projectId) return;
+
+        const res = await fetch(`/api/hubs/${encodeURIComponent(hubId)}/projects/${encodeURIComponent(projectId)}/issuetypes`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const out = await res.json();
+        if (!out || !Array.isArray(out.options) || out.options.length === 0) return;
+
+        this._issueSubtypeOptions = out.options
+          .filter((o) => o && o.value)
+          .map((o) => ({
+            value: String(o.value),
+            label: String(o.label || o.title || o.value)
+          }));
+
+        const suggestedDefault = out && out.defaultSubtypeId ? String(out.defaultSubtypeId) : '';
+        const hasSuggestedDefault = suggestedDefault && this._issueSubtypeOptions.some((o) => o.value === suggestedDefault);
+
+        if (hasSuggestedDefault) {
+          this._defaultIssueSubtypeId = suggestedDefault;
+        } else if (!this._defaultIssueSubtypeId || !this._issueSubtypeOptions.some((o) => o.value === this._defaultIssueSubtypeId)) {
+          this._defaultIssueSubtypeId = this._issueSubtypeOptions[0].value;
+        }
+
+        if (this._propsPanel) {
+          const sel = this._propsPanel.querySelector('[data-role="issuetype"]');
+          if (sel) {
+            sel.innerHTML = this._issueSubtypeOptions
+              .map((o) => `<option value="${o.value}">${o.label}</option>`)
+              .join('');
+            sel.value = this._defaultIssueSubtypeId;
+          }
+        }
+      } catch (e) {
+        console.warn('[ELIN] Issue-Subtypes konnten nicht geladen werden:', e);
+      }
     }
 
     _currentStorageKey() {
@@ -646,8 +901,10 @@
         id: s.id,
         stampKey: s.stampKey,
         worldPos: vecToPlain(s.worldPos),
+        dbWorld: vecToPlain(s.dbWorld || s.worldPos),
         scale: (typeof s.scale === 'number' ? s.scale : 1),
         issueType: s.issueType || 'allgemein',
+        issueSubtypeId: s.issueSubtypeId || null,
         referenceZoom: s.referenceZoom || 1  // Für absolute Skalierung
       }));
 
@@ -671,8 +928,10 @@
             id: d.id || uid(),
             stampKey: d.stampKey,
             worldPos: plainToVec3(d.worldPos),
+            dbWorld: plainToVec3(d.dbWorld || d.worldPos),
             scale: (typeof d.scale === 'number' ? d.scale : 1),
             issueType: d.issueType || 'allgemein',
+            issueSubtypeId: d.issueSubtypeId || null,
             referenceZoom: d.referenceZoom || this._getCurrentZoomFactor()  // Fallback zum aktuellen Zoom
           }, false);
         }
@@ -803,6 +1062,9 @@
         stampKey: data.stampKey,
         label: def ? (def.label || '') : '',
         worldPos: data.worldPos instanceof THREE.Vector3 ? data.worldPos.clone() : plainToVec3(data.worldPos),
+        dbWorld: data.dbWorld instanceof THREE.Vector3
+          ? data.dbWorld.clone()
+          : (data.worldPos instanceof THREE.Vector3 ? data.worldPos.clone() : plainToVec3(data.worldPos)),
         scale: (typeof data.scale === 'number' ? data.scale : 1),
         issueType: data.issueType || 'allgemein',
         referenceZoom: data.referenceZoom || this._getCurrentZoomFactor(), // Zoom beim Erstellen
@@ -941,6 +1203,7 @@
           const startWorld = st.startWorldById.get(s.id);
           if (!startWorld) continue;
           s.worldPos.copy(startWorld.clone().add(delta));
+          s.dbWorld.copy(s.worldPos);
           this._updateStampDom(s);
         }
 
@@ -1051,6 +1314,9 @@
       const model = this.viewer.model;
       if (!model) throw new Error('Kein Model geladen.');
 
+      // Definiere is2D frueh, damit es in allen folgenden Logs/Abfragen sicher verfuegbar ist.
+      const is2D = (model && typeof model.is2d === 'function') ? !!model.is2d() : this._is2DModel();
+
       console.log('[ELIN] Model Debug:', {
         hasGetSeedUrn: typeof model.getSeedUrn === 'function',
         hasGetDocumentNode: typeof model.getDocumentNode === 'function',
@@ -1062,6 +1328,7 @@
       
       const viewableId = (docNode && docNode.data && docNode.data.guid) ? docNode.data.guid : null;
       const viewableName = (docNode && docNode.data && docNode.data.name) ? String(docNode.data.name) : 'ELIN Plan Prüfung';
+      const docVersionUrn = (docNode && docNode.data && docNode.data.urn) ? String(docNode.data.urn) : null;
 
       // Mehrere Methoden versuchen, die URN zu bekommen
       let fullUrn = null;
@@ -1110,11 +1377,31 @@
         throw new Error('URN konnte nicht ermittelt werden. Prüfe die Console für Details.');
       }
 
-      const is2D = this._is2DModel();
+      const ctx = (window.ELIN_TREE_CTX && typeof window.ELIN_TREE_CTX === 'object') ? window.ELIN_TREE_CTX : {};
+      const selectedHubId = ctx.hubId ? String(ctx.hubId).trim() : '';
+      const selectedProjectId = ctx.projectId ? String(ctx.projectId).trim() : '';
+
+      if (!selectedHubId || !selectedProjectId) {
+        throw new Error('hubId/projectId fehlen im Sidebar-Kontext. Bitte zuerst im Baum ein Projekt und Element auswaehlen.');
+      }
+
+      await this._loadIssueSubtypeOptions();
+      const activeSubtypeIds = new Set((this._issueSubtypeOptions || []).map((o) => String(o.value)));
+      const activeDefaultSubtypeId = this._defaultIssueSubtypeId && activeSubtypeIds.has(String(this._defaultIssueSubtypeId))
+        ? String(this._defaultIssueSubtypeId)
+        : ((this._issueSubtypeOptions[0] && this._issueSubtypeOptions[0].value) ? String(this._issueSubtypeOptions[0].value) : '');
+
+      if (!activeDefaultSubtypeId) {
+        throw new Error('Kein aktiver Issue-Subtype verfuegbar. Bitte ACC-Issue-Typen im Projekt pruefen.');
+      }
+
       console.log('[ELIN] Sending to ACC - Model is 2D:', is2D);
       console.log('[ELIN] ViewableId:', viewableId);
       console.log('[ELIN] ViewableName:', viewableName);
       console.log('[ELIN] URN:', fullUrn);
+      console.log('[ELIN] versionUrn:', docVersionUrn || fullUrn);
+      console.log('[ELIN] projectId:', selectedProjectId);
+      console.log('[ELIN] hubId:', selectedHubId);
 
       const payload = this._selected.map((s) => {
         const def = this._library.get(s.stampKey);
@@ -1123,17 +1410,76 @@
         const type = s.issueType || 'allgemein';
         const status = (type === 'mangel') ? 'open' : 'closed';
 
+        const dbWorldPosition = vecToPlain(s.dbWorld || s.worldPos);
         const worldPosition = vecToPlain(s.worldPos);
-        const accPosition = is2D ? this._getAcc2DPosition(s.worldPos) : worldPosition;
+
+        // 2D: keep sheet coordinates with decimal precision; 3D: send true world xyz.
+        const accPosition = is2D
+          ? this._getAcc2DPosition(s.dbWorld || s.worldPos)
+          : dbWorldPosition;
+        const accNormalizedPosition = is2D
+          ? this._getAcc2DNormalizedPosition(s.dbWorld || s.worldPos)
+          : dbWorldPosition;
         
         const linkedType = is2D ? 'TwoDVectorPushpin' : 'ThreeDVectorPushpin';
         console.log(`[ELIN] Stamp ${s.id}: linkedDocumentType = ${linkedType}, accPosition =`, accPosition);
+
+        const treeCtxLocal = (window.ELIN_TREE_CTX && typeof window.ELIN_TREE_CTX === 'object') ? window.ELIN_TREE_CTX : {};
+        const containerIdFromItem = treeCtxLocal.itemId ? String(treeCtxLocal.itemId).split(':').pop() : null;
+        const toLineageUrn = (rawUrn) => {
+          const raw = String(rawUrn || '').trim();
+          if (!raw) return '';
+          let decoded = raw;
+          if (!decoded.startsWith('urn:adsk')) {
+            try { decoded = atob(decoded); } catch (e) { /* keep raw */ }
+          }
+          const noQuery = String(decoded).split('?')[0];
+          if (!noQuery.startsWith('urn:adsk')) return '';
+          return noQuery
+            .replace('urn:adsk.wipemea:fs.file:vf.', 'urn:adsk.wipemea:dm.lineage:')
+            .replace(':fs.file:vf.', ':dm.lineage:')
+            .replace(':fs.file:v.', ':dm.lineage:');
+        };
+
+        const dataUrnRaw = (() => {
+          try {
+            const d = model.getData && model.getData();
+            return d && d.urn ? String(d.urn) : '';
+          } catch (e) {
+            return '';
+          }
+        })();
+        const decodeUrn = (rawUrn) => {
+          const raw = String(rawUrn || '').trim();
+          if (!raw) return '';
+          if (raw.startsWith('urn:adsk')) return raw;
+          try { return atob(raw); } catch (e) { return raw; }
+        };
+
+        const originalUrn = decodeUrn(docVersionUrn || fullUrn || dataUrnRaw);
+        const linkedDocumentUrn = toLineageUrn(originalUrn);
+        const issueVersionUrn = is2D
+          ? linkedDocumentUrn
+          : (docVersionUrn || fullUrn || originalUrn);
+        const issueUrn = is2D
+          ? linkedDocumentUrn
+          : (fullUrn || originalUrn);
+        const versionUrnDecoded = (() => {
+          try { return atob(docVersionUrn || fullUrn); } catch (e) { return docVersionUrn || fullUrn; }
+        })();
+        const containerIdFromVersion = (() => {
+          const m = String(versionUrnDecoded).match(/:vf\.([^?]+)/);
+          return m ? m[1] : null;
+        })();
 
         return {
           id: s.id,
 
           // Backend-Mapping (issueSubtypeId)
           type,
+          issueSubtypeId: (s.issueSubtypeId && activeSubtypeIds.has(String(s.issueSubtypeId)))
+            ? String(s.issueSubtypeId)
+            : activeDefaultSubtypeId,
           status,
 
           // Sichtbarer ACC-Titel + eindeutige Stempel-ID
@@ -1149,19 +1495,52 @@
           // Wichtig für 2D ACC Pushpin
           position: accPosition,      // kompatibel zum bestehenden Backend
           accPosition: accPosition,   // explizit
+          accNormalizedPosition,
           worldPosition: worldPosition,
+          dbWorld: dbWorldPosition,
 
           viewId: viewableId,
           viewName: viewableName,
-          urn: fullUrn,
-          version: versionNum
+          projectId: selectedProjectId,
+          hubId: selectedHubId,
+          originalUrn,
+          urn: issueUrn,
+          versionUrn: issueVersionUrn,
+          version: versionNum,
+          itemId: treeCtxLocal.itemId || null,
+          containerId: containerIdFromItem || containerIdFromVersion || null,
+          linkedDocumentUrn,
+
+          // SVG-Fragment + viewBox fuer Markups API POST.
+          stampSvg: def ? def.svg : null,
+          stampViewBox: def ? def.viewBox : null,
+          accMarkupSvg: def ? (def.accMarkupSvg || '') : '',
+          stampWidth: def ? (def.width || 0) : 0,
+          stampHeight: def ? (def.height || 0) : 0
         };
       });
 
       const res = await fetch('/api/issues/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stamps: payload })
+        body: JSON.stringify({
+          hubId: selectedHubId,
+          projectId: selectedProjectId,
+          stamps: payload.map((s) => {
+            if (!is2D) return s;
+            const raw = String(s.originalUrn || s.versionUrn || s.urn || '').split('?')[0];
+            const lineage = raw
+              .replace('urn:adsk.wipemea:fs.file:vf.', 'urn:adsk.wipemea:dm.lineage:')
+              .replace(':fs.file:vf.', ':dm.lineage:')
+              .replace(':fs.file:v.', ':dm.lineage:');
+            return {
+              ...s,
+              linkedDocumentUrn: lineage,
+              versionUrn: lineage,
+              urn: lineage
+            };
+          })
+        })
       });
 
       if (!res.ok) {
