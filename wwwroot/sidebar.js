@@ -59,7 +59,29 @@ export function initTree(selector, onSelectionChanged) {
     tree.on('node.click', function (event, node) {
         event.preventTreeDefault();
         const tokens = node.id.split('|');
+
+        // Globale Ablage: hubId/projectId/itemId/versionId
+        window.ELIN_TREE_CTX = window.ELIN_TREE_CTX || {};
+
+        if (tokens[0] === 'project') {
+            // project|<hubId>|<projectId>
+            window.ELIN_TREE_CTX.hubId = tokens[1];
+            window.ELIN_TREE_CTX.projectId = tokens[2];
+            console.log('TREE DEBUG project selected:', { hubId: tokens[1], projectId: tokens[2] });
+        }
+
+        if (tokens[0] === 'item') {
+            // item|<hubId>|<projectId>|<itemId>
+            window.ELIN_TREE_CTX.hubId = tokens[1];
+            window.ELIN_TREE_CTX.projectId = tokens[2];
+            window.ELIN_TREE_CTX.itemId = tokens[3];
+            console.log('TREE DEBUG item selected:', { hubId: tokens[1], projectId: tokens[2], itemId: tokens[3] });
+        }
+
         if (tokens[0] === 'version') {
+            // version|<versionId>
+            window.ELIN_TREE_CTX.versionId = tokens[1];
+            console.log('TREE DEBUG version selected:', { ...window.ELIN_TREE_CTX });
             onSelectionChanged(tokens[1]);
         }
     });

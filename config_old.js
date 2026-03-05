@@ -6,11 +6,9 @@ if (!APS_CLIENT_ID || !APS_CLIENT_SECRET || !APS_CALLBACK_URL || !SERVER_SESSION
     console.warn('Missing some of the environment variables.');
     process.exit(1);
 }
-
-// Erweitert um DataWrite und DataCreate für die ACC Issues
-const INTERNAL_TOKEN_SCOPES = [Scopes.DataRead, Scopes.DataWrite, Scopes.DataCreate, Scopes.ViewablesRead];
+const INTERNAL_TOKEN_SCOPES = [Scopes.DataRead, Scopes.ViewablesRead];
 const PUBLIC_TOKEN_SCOPES = [Scopes.ViewablesRead];
-PORT = PORT || 3000;
+PORT = PORT || 8080;
 
 module.exports = {
     APS_CLIENT_ID,

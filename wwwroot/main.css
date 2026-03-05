@@ -13,9 +13,18 @@ body, html {
     height: 3em;
     width: 100%;
     display: flex;
+    background-color: #005aa9;
+    color: white;
     flex-flow: row nowrap;
     justify-content: space-between;
     align-items: center;
+    
+}
+
+#header .title {
+    flex: 1;
+    font-size: 1.2em;
+    font-weight: bold;
 }
 
 #sidebar {

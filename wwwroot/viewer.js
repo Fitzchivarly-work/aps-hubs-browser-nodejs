@@ -1,23 +1,24 @@
+/// <reference types="autodesk-viewer" />
+
 async function getAccessToken(callback) {
     try {
         const resp = await fetch('/api/auth/token');
-        if (!resp.ok)
-            throw new Error(await resp.text());
         const { access_token, expires_in } = await resp.json();
         callback(access_token, expires_in);
     } catch (err) {
-        alert('Could not obtain access token. See the console for more details.');
-        console.error(err);        
+        console.error(err);
     }
 }
 
 export function initViewer(container) {
-    return new Promise(function (resolve, reject) {
-        Autodesk.Viewing.FeatureFlags.set('DS_ENDPOINTS', true);
-        Autodesk.Viewing.Initializer({ env: 'AutodeskProduction', getAccessToken }, function () {
-            const config = {
-                extensions: ['Autodesk.DocumentBrowser']
-            };
+    return new Promise(function (resolve) {
+        const options = {
+            env: 'AutodeskProduction2', 
+            api: 'derivativeV2_EU', // WICHTIG für Europa-Server
+            getAccessToken: getAccessToken
+        };
+        Autodesk.Viewing.Initializer(options, function () {
+            const config = { extensions: ['ElinStampExtension', 'Autodesk.DocumentBrowser'] };
             const viewer = new Autodesk.Viewing.GuiViewer3D(container, config);
             viewer.start();
             viewer.setTheme('light-theme');
@@ -27,12 +28,8 @@ export function initViewer(container) {
 }
 
 export function loadModel(viewer, urn) {
-    function onDocumentLoadSuccess(doc) {
+    const documentId = urn.startsWith('urn:') ? urn : 'urn:' + urn;
+    Autodesk.Viewing.Document.load(documentId, (doc) => {
         viewer.loadDocumentNode(doc, doc.getRoot().getDefaultGeometry());
-    }
-    function onDocumentLoadFailure(code, message) {
-        alert('Could not load model. See console for more details.');
-        console.error(message);
-    }
-    Autodesk.Viewing.Document.load('urn:' + urn, onDocumentLoadSuccess, onDocumentLoadFailure);
+    });
 }
