@@ -205,6 +205,7 @@
       this._maxScale = Number(this.options.maxScale) || 6;
       this._ctxMenuId = 'elin-stamp-menu';
       this._acc2dYMode = this.options.acc2dYMode || 'bbox-min'; // 'bbox-min' | 'bbox-max-inverted'
+      this._acc2dInvertY = this.options.acc2dInvertY !== false;
 
       // Bound handlers
       this._onCameraChange = () => this._updateAllStamps();
@@ -319,78 +320,78 @@
     }
 
     _getAcc2DPosition(worldPos) {
-      // Viewer world -> sheet coordinates for TwoDVectorPushpin.
-      // Keep decimal precision to avoid collapsing to {x:1,y:0} after rounding.
       const model = this.viewer && this.viewer.model;
       if (!model) return this._toPlainPos(worldPos);
 
-      const bbox = model.getBoundingBox && model.getBoundingBox();
-      if (!bbox || !bbox.min || !bbox.max) return this._toPlainPos(worldPos);
+      const m = this._get2DSheetMetrics();
+      if (!m || !m.valid) return this._toPlainPos(worldPos);
 
-      const x = Number(worldPos.x) - Number(bbox.min.x);
-      let y = 0;
-
-      if (this._acc2dYMode === 'bbox-max-inverted') {
-        y = Number(bbox.max.y) - Number(worldPos.y);
-      } else {
-        // Default for many DWG/PDF sheets
-        y = Number(worldPos.y) - Number(bbox.min.y);
-      }
-
+      const clamp01 = (n) => Math.max(0, Math.min(1, n));
       const toPrecise = (n) => {
         const v = Number(n);
         if (!Number.isFinite(v)) return 0;
         return Math.round(v * 1000) / 1000;
       };
 
-      return { x: toPrecise(x), y: toPrecise(y), z: 0 };
+      const nxRaw = (Number(worldPos.x) - m.minX) / m.width;
+      const nyRaw = (Number(worldPos.y) - m.minY) / m.height;
+      const nx = clamp01(nxRaw);
+      const nyModel = clamp01(nyRaw);
+
+      const xAbs = nx * m.pageWidth;
+      const yAbs = nyModel * m.pageHeight;
+      return { x: toPrecise(xAbs), y: toPrecise(yAbs), z: 0 };
     }
 
     _getAcc2DNormalizedPosition(worldPos) {
-      const model = this.viewer && this.viewer.model;
-      if (!model) return { x: 0, y: 0, z: 0 };
+      const m = this._get2DSheetMetrics();
+      if (!m || !m.valid) return { x: 0, y: 0, z: 0 };
 
       const clamp01 = (n) => Math.max(0, Math.min(1, n));
-
-      // Preferred: use page metadata + page-to-model transform (invert to model->page)
-      try {
-        const data = model.getData && model.getData();
-        const md = data && data.metadata ? data.metadata : null;
-        const pageW = Number(md && (md.page_width || md.pageWidth || md.width));
-        const pageH = Number(md && (md.page_height || md.pageHeight || md.height));
-
-        const pageToModel = model.getPageToModelTransform && model.getPageToModelTransform();
-        if (pageToModel && Number.isFinite(pageW) && Number.isFinite(pageH) && pageW > 0 && pageH > 0) {
-          const m = new THREE.Matrix4();
-          if (pageToModel instanceof THREE.Matrix4) {
-            m.copy(pageToModel);
-          } else if (Array.isArray(pageToModel) && pageToModel.length === 16) {
-            m.fromArray(pageToModel);
-          }
-
-          const inv = new THREE.Matrix4().copy(m).invert();
-          const p = new THREE.Vector3(Number(worldPos.x) || 0, Number(worldPos.y) || 0, Number(worldPos.z) || 0).applyMatrix4(inv);
-
-          return {
-            x: Math.round(clamp01(p.x / pageW) * 1000000) / 1000000,
-            y: Math.round(clamp01(p.y / pageH) * 1000000) / 1000000,
-            z: 0
-          };
-        }
-      } catch (e) {
-        // fallback below
-      }
-
-      // Fallback: normalize against model bbox in sheet space.
-      const abs = this._getAcc2DPosition(worldPos);
-      const bbox = model.getBoundingBox && model.getBoundingBox();
-      const w = bbox ? Math.max(1e-9, Number(bbox.max.x) - Number(bbox.min.x)) : 1;
-      const h = bbox ? Math.max(1e-9, Number(bbox.max.y) - Number(bbox.min.y)) : 1;
+      const nxRaw = (Number(worldPos.x) - m.minX) / m.width;
+      const nyRaw = (Number(worldPos.y) - m.minY) / m.height;
+      const nx = clamp01(nxRaw);
+      const nyModel = clamp01(nyRaw);
 
       return {
-        x: Math.round(clamp01(Number(abs.x) / w) * 1000000) / 1000000,
-        y: Math.round(clamp01(Number(abs.y) / h) * 1000000) / 1000000,
+        x: Math.round(nx * 1000000) / 1000000,
+        y: Math.round(nyModel * 1000000) / 1000000,
         z: 0
+      };
+    }
+
+    _get2DSheetMetrics() {
+      const model = this.viewer && this.viewer.model;
+      if (!model) return null;
+
+      const data = model.getData && model.getData();
+      const md = data && data.metadata ? data.metadata : {};
+
+      const bbox = (data && data.bbox) || (model.getBoundingBox && model.getBoundingBox()) || null;
+      if (!bbox || !bbox.min || !bbox.max) return null;
+
+      const minX = Number(bbox.min.x);
+      const minY = Number(bbox.min.y);
+      const maxX = Number(bbox.max.x);
+      const maxY = Number(bbox.max.y);
+      const width = maxX - minX;
+      const height = maxY - minY;
+
+      const pageW = Number(md.page_width || md.pageWidth || md.width || md.sheetWidth || width);
+      const pageH = Number(md.page_height || md.pageHeight || md.height || md.sheetHeight || height);
+
+      return {
+        valid: Number.isFinite(minX) && Number.isFinite(minY)
+          && Number.isFinite(width) && width > 0
+          && Number.isFinite(height) && height > 0
+          && Number.isFinite(pageW) && pageW > 0
+          && Number.isFinite(pageH) && pageH > 0,
+        minX,
+        minY,
+        width,
+        height,
+        pageWidth: pageW,
+        pageHeight: pageH
       };
     }
 
@@ -686,9 +687,10 @@
       });
 
       const issueTypeSel = panel.querySelector('[data-role="issuetype"]');
-      issueTypeSel.innerHTML = '<option value="allgemein">Allgemein</option><option value="mangel">Mangel</option>';
+      issueTypeSel.innerHTML = '<option value="">Lade aktive ACC Subtypes ...</option>';
       issueTypeSel.addEventListener('change', () => {
         const v = issueTypeSel.value;
+        if (!v) return;
         this._defaultIssueType = v;
         this._defaultIssueSubtypeId = v;
         for (const s of this._selected) s.issueType = v;
@@ -1067,6 +1069,7 @@
           : (data.worldPos instanceof THREE.Vector3 ? data.worldPos.clone() : plainToVec3(data.worldPos)),
         scale: (typeof data.scale === 'number' ? data.scale : 1),
         issueType: data.issueType || 'allgemein',
+        issueSubtypeId: data.issueSubtypeId || null,
         referenceZoom: data.referenceZoom || this._getCurrentZoomFactor(), // Zoom beim Erstellen
         el: null
       };
@@ -1323,66 +1326,34 @@
         modelType: model.constructor.name
       });
 
-      const docNode = model.getDocumentNode && model.getDocumentNode();
-      console.log('[ELIN] DocNode:', docNode);
-      
-      const viewableId = (docNode && docNode.data && docNode.data.guid) ? docNode.data.guid : null;
-      const viewableName = (docNode && docNode.data && docNode.data.name) ? String(docNode.data.name) : 'ELIN Plan Prüfung';
-      const docVersionUrn = (docNode && docNode.data && docNode.data.urn) ? String(docNode.data.urn) : null;
-
-      // Mehrere Methoden versuchen, die URN zu bekommen
-      let fullUrn = null;
-      
-      // Methode 1: getSeedUrn() (Standard für APS Viewer)
-      if (model.getSeedUrn && typeof model.getSeedUrn === 'function') {
-        fullUrn = model.getSeedUrn();
-        console.log('[ELIN] URN from getSeedUrn():', fullUrn);
-      }
-      
-      // Methode 2: myData.urn (Fallback)
-      if (!fullUrn && model.myData && model.myData.urn) {
-        fullUrn = model.myData.urn;
-        console.log('[ELIN] URN from myData.urn:', fullUrn);
-      }
-      
-      // Methode 3: loader.svfUrn (Fallback für SVF)
-      if (!fullUrn && model.loader && model.loader.svfUrn) {
-        fullUrn = model.loader.svfUrn;
-        console.log('[ELIN] URN from loader.svfUrn:', fullUrn);
-      }
-      
-      // Methode 4: Document URN (aus docNode)
-      if (!fullUrn && docNode && docNode.data) {
-        if (docNode.data.urn) {
-          fullUrn = docNode.data.urn;
-          console.log('[ELIN] URN from docNode.data.urn:', fullUrn);
-        } else if (docNode.getRootNode && docNode.getRootNode()) {
-          const root = docNode.getRootNode();
-          if (root.data && root.data.urn) {
-            fullUrn = root.data.urn;
-            console.log('[ELIN] URN from root.data.urn:', fullUrn);
-          }
-        }
-      }
-
-      const versionNumRaw = (docNode && docNode.data && docNode.data.versionNumber) ? docNode.data.versionNumber : 1;
-      const versionNum = parseInt(versionNumRaw, 10) || 1;
-
-      if (!fullUrn) {
-        console.error('[ELIN] Failed to get URN. Model structure:', {
-          model: Object.keys(model),
-          docNode: docNode ? Object.keys(docNode) : null,
-          docNodeData: docNode && docNode.data ? Object.keys(docNode.data) : null
-        });
-        throw new Error('URN konnte nicht ermittelt werden. Prüfe die Console für Details.');
-      }
-
       const ctx = (window.ELIN_TREE_CTX && typeof window.ELIN_TREE_CTX === 'object') ? window.ELIN_TREE_CTX : {};
       const selectedHubId = ctx.hubId ? String(ctx.hubId).trim() : '';
       const selectedProjectId = ctx.projectId ? String(ctx.projectId).trim() : '';
+      const ctxItemId = ctx.itemId ? String(ctx.itemId).trim() : '';
+      const ctxVersionId = ctx.versionId ? String(ctx.versionId).trim() : '';
 
-      if (!selectedHubId || !selectedProjectId) {
-        throw new Error('hubId/projectId fehlen im Sidebar-Kontext. Bitte zuerst im Baum ein Projekt und Element auswaehlen.');
+      const docNode = model.getDocumentNode && model.getDocumentNode();
+      const viewableId = (docNode && docNode.data && docNode.data.guid) ? String(docNode.data.guid).trim() : '';
+      const viewableName = (docNode && docNode.data && docNode.data.name) ? String(docNode.data.name) : 'ELIN Plan Prüfung';
+
+      const toLineageUrn = (rawItemId) => {
+        const raw = String(rawItemId || '').trim();
+        if (!raw) return '';
+        const idPart = raw.includes(':') ? raw.split(':').pop() : raw;
+        return idPart ? `urn:adsk.wipemea:dm.lineage:${idPart}` : '';
+      };
+
+      const linkedDocumentUrnFromCtx = toLineageUrn(ctxItemId);
+      const versionMatch = String(ctxVersionId || '').match(/[?&]version=(\d+)/i);
+      const versionNum = (versionMatch && Number.isFinite(parseInt(versionMatch[1], 10)) && parseInt(versionMatch[1], 10) > 0)
+        ? parseInt(versionMatch[1], 10)
+        : 1;
+
+      if (!selectedHubId || !selectedProjectId || !ctxItemId || !ctxVersionId || !linkedDocumentUrnFromCtx) {
+        throw new Error('Strict Mode: hubId/projectId/itemId/versionId fehlen im Sidebar-Kontext. Bitte im Baum ein konkretes Sheet waehlen.');
+      }
+      if (!viewableId) {
+        throw new Error('Strict Mode: viewId (aktuelles Sheet guid) konnte nicht bestimmt werden.');
       }
 
       await this._loadIssueSubtypeOptions();
@@ -1398,10 +1369,11 @@
       console.log('[ELIN] Sending to ACC - Model is 2D:', is2D);
       console.log('[ELIN] ViewableId:', viewableId);
       console.log('[ELIN] ViewableName:', viewableName);
-      console.log('[ELIN] URN:', fullUrn);
-      console.log('[ELIN] versionUrn:', docVersionUrn || fullUrn);
       console.log('[ELIN] projectId:', selectedProjectId);
       console.log('[ELIN] hubId:', selectedHubId);
+      console.log('[ELIN] itemId:', ctxItemId);
+      console.log('[ELIN] versionId:', ctxVersionId);
+      console.log('[ELIN] createdAtVersion (strict from versionId):', versionNum);
 
       const payload = this._selected.map((s) => {
         const def = this._library.get(s.stampKey);
@@ -1414,63 +1386,70 @@
         const worldPosition = vecToPlain(s.worldPos);
 
         // 2D: keep sheet coordinates with decimal precision; 3D: send true world xyz.
+        const modelData = (this.viewer && this.viewer.model && this.viewer.model.getData)
+          ? this.viewer.model.getData()
+          : null;
+        const metricsUsed = is2D ? this._get2DSheetMetrics() : null;
+
+        if (is2D) {
+          console.log(`[ELIN][2D][${s.id}] raw viewer coordinates (dbWorld/world):`, {
+            dbWorld: dbWorldPosition,
+            world: worldPosition
+          });
+          try {
+            console.log(`[ELIN][2D][${s.id}] model.getData().bbox + metadata START`);
+            console.log(JSON.stringify({
+              bbox: modelData && modelData.bbox ? modelData.bbox : null,
+              metadata: modelData && modelData.metadata ? modelData.metadata : null,
+              derivedSheetMetrics: metricsUsed
+            }, null, 2));
+            console.log(`[ELIN][2D][${s.id}] model.getData().bbox + metadata END`);
+          } catch (metaErr) {
+            console.warn(`[ELIN][2D][${s.id}] Could not stringify bbox/metadata:`, metaErr && metaErr.message ? metaErr.message : metaErr);
+          }
+        }
+
         const accPosition = is2D
           ? this._getAcc2DPosition(s.dbWorld || s.worldPos)
           : dbWorldPosition;
-        const accNormalizedPosition = is2D
+        let accNormalizedPosition = is2D
           ? this._getAcc2DNormalizedPosition(s.dbWorld || s.worldPos)
           : dbWorldPosition;
+
+        if (is2D && this._acc2dInvertY && accNormalizedPosition && Number.isFinite(accNormalizedPosition.y)) {
+          const clamp01 = (n) => Math.max(0, Math.min(1, n));
+          const yBeforeInvert = clamp01(Number(accNormalizedPosition.y));
+          const invertedY = clamp01(1 - yBeforeInvert);
+          console.log(`[ELIN][2D][${s.id}] Y inversion formula: 1.0 - y`, {
+            yBeforeInvert,
+            expression: `1.0 - ${yBeforeInvert}`,
+            invertedY
+          });
+          accNormalizedPosition = {
+            x: clamp01(Number(accNormalizedPosition.x)),
+            y: Math.round(invertedY * 1000000) / 1000000,
+            z: 0
+          };
+
+          const metrics = metricsUsed || this._get2DSheetMetrics();
+          if (metrics && metrics.valid) {
+            accPosition.y = Math.round((accNormalizedPosition.y * metrics.pageHeight) * 1000) / 1000;
+          }
+        }
+
+        if (is2D) {
+          console.log(`[ELIN][2D][${s.id}] final payload coordinates`, {
+            accPosition,
+            accNormalizedPosition,
+            finalXY: {
+              x: accPosition && Number.isFinite(accPosition.x) ? accPosition.x : null,
+              y: accPosition && Number.isFinite(accPosition.y) ? accPosition.y : null
+            }
+          });
+        }
         
         const linkedType = is2D ? 'TwoDVectorPushpin' : 'ThreeDVectorPushpin';
         console.log(`[ELIN] Stamp ${s.id}: linkedDocumentType = ${linkedType}, accPosition =`, accPosition);
-
-        const treeCtxLocal = (window.ELIN_TREE_CTX && typeof window.ELIN_TREE_CTX === 'object') ? window.ELIN_TREE_CTX : {};
-        const containerIdFromItem = treeCtxLocal.itemId ? String(treeCtxLocal.itemId).split(':').pop() : null;
-        const toLineageUrn = (rawUrn) => {
-          const raw = String(rawUrn || '').trim();
-          if (!raw) return '';
-          let decoded = raw;
-          if (!decoded.startsWith('urn:adsk')) {
-            try { decoded = atob(decoded); } catch (e) { /* keep raw */ }
-          }
-          const noQuery = String(decoded).split('?')[0];
-          if (!noQuery.startsWith('urn:adsk')) return '';
-          return noQuery
-            .replace('urn:adsk.wipemea:fs.file:vf.', 'urn:adsk.wipemea:dm.lineage:')
-            .replace(':fs.file:vf.', ':dm.lineage:')
-            .replace(':fs.file:v.', ':dm.lineage:');
-        };
-
-        const dataUrnRaw = (() => {
-          try {
-            const d = model.getData && model.getData();
-            return d && d.urn ? String(d.urn) : '';
-          } catch (e) {
-            return '';
-          }
-        })();
-        const decodeUrn = (rawUrn) => {
-          const raw = String(rawUrn || '').trim();
-          if (!raw) return '';
-          if (raw.startsWith('urn:adsk')) return raw;
-          try { return atob(raw); } catch (e) { return raw; }
-        };
-
-        const originalUrn = decodeUrn(docVersionUrn || fullUrn || dataUrnRaw);
-        const linkedDocumentUrn = toLineageUrn(originalUrn);
-        const issueVersionUrn = is2D
-          ? linkedDocumentUrn
-          : (docVersionUrn || fullUrn || originalUrn);
-        const issueUrn = is2D
-          ? linkedDocumentUrn
-          : (fullUrn || originalUrn);
-        const versionUrnDecoded = (() => {
-          try { return atob(docVersionUrn || fullUrn); } catch (e) { return docVersionUrn || fullUrn; }
-        })();
-        const containerIdFromVersion = (() => {
-          const m = String(versionUrnDecoded).match(/:vf\.([^?]+)/);
-          return m ? m[1] : null;
-        })();
 
         return {
           id: s.id,
@@ -1503,13 +1482,12 @@
           viewName: viewableName,
           projectId: selectedProjectId,
           hubId: selectedHubId,
-          originalUrn,
-          urn: issueUrn,
-          versionUrn: issueVersionUrn,
+          versionId: ctxVersionId,
           version: versionNum,
-          itemId: treeCtxLocal.itemId || null,
-          containerId: containerIdFromItem || containerIdFromVersion || null,
-          linkedDocumentUrn,
+          createdAtVersion: versionNum,
+          itemId: ctxItemId,
+          containerId: ctxItemId.split(':').pop() || null,
+          linkedDocumentUrn: linkedDocumentUrnFromCtx,
 
           // SVG-Fragment + viewBox fuer Markups API POST.
           stampSvg: def ? def.svg : null,
@@ -1520,27 +1498,31 @@
         };
       });
 
+      const requestBody = {
+        hubId: selectedHubId,
+        projectId: selectedProjectId,
+        stamps: payload.map((s) => {
+          if (!is2D) return s;
+          return {
+            ...s,
+            linkedDocumentUrn: linkedDocumentUrnFromCtx
+          };
+        })
+      };
+
+      try {
+        console.log('[ELIN] /api/issues/create payload START');
+        console.log(JSON.stringify(requestBody, null, 2));
+        console.log('[ELIN] /api/issues/create payload END');
+      } catch (payloadErr) {
+        console.warn('[ELIN] Could not stringify /api/issues/create payload:', payloadErr && payloadErr.message ? payloadErr.message : payloadErr);
+        console.log('[ELIN] /api/issues/create payload fallback object:', requestBody);
+      }
+
       const res = await fetch('/api/issues/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          hubId: selectedHubId,
-          projectId: selectedProjectId,
-          stamps: payload.map((s) => {
-            if (!is2D) return s;
-            const raw = String(s.originalUrn || s.versionUrn || s.urn || '').split('?')[0];
-            const lineage = raw
-              .replace('urn:adsk.wipemea:fs.file:vf.', 'urn:adsk.wipemea:dm.lineage:')
-              .replace(':fs.file:vf.', ':dm.lineage:')
-              .replace(':fs.file:v.', ':dm.lineage:');
-            return {
-              ...s,
-              linkedDocumentUrn: lineage,
-              versionUrn: lineage,
-              urn: lineage
-            };
-          })
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!res.ok) {

@@ -2,9 +2,6 @@ const express = require('express');
 const session = require('cookie-session');
 const { PORT, SERVER_SESSION_SECRET } = require('./config.js');
 const SERVER_BUILD = '2026-03-04-2d-markup-stable';
-const PROJECT_ID = "bd116dfe-b5d8-4cf9-98ed-68bb5316db04";
-const SUBTYPE_ID_MANGEL = "3f0a4ddd-8377-465c-835c-ad72b8aa2439";
-const SUBTYPE_ID_ALLGEMEIN = "2c12ca9f-5317-5200-b91f-8c7094cd42e4";
 const ACC_MARKUPS_POST_URL = process.env.ACC_MARKUPS_POST_URL || '';
 
 function normalizeProjectId(projectId) {
@@ -116,61 +113,39 @@ function uniqueNonEmpty(values) {
 }
 
 function extractIssuesContainerId(payload) {
-    if (!payload || typeof payload !== 'object') return '';
-
-    if (payload.issuesContainerId) return String(payload.issuesContainerId).trim();
-    if (payload.issueContainerId) return String(payload.issueContainerId).trim();
+    if (!payload || typeof payload !== 'object') return { id: '', source: 'none' };
 
     const data = payload.data || {};
     const attrs = data.attributes || {};
-    if (attrs.issuesContainerId) return String(attrs.issuesContainerId).trim();
-
     const extData = attrs.extension && attrs.extension.data ? attrs.extension.data : {};
-    if (extData.issuesContainerId) return String(extData.issuesContainerId).trim();
-    if (extData.projectGuid) return String(extData.projectGuid).trim();
-
     const relationships = data.relationships || {};
+
+    // Primary source according to Autodesk project response.
     const issuesRel = relationships.issues || {};
     const issuesRelData = issuesRel.data;
-    if (Array.isArray(issuesRelData) && issuesRelData.length > 0 && issuesRelData[0] && issuesRelData[0].id) {
-        return String(issuesRelData[0].id).trim();
+    if (Array.isArray(issuesRelData)) {
+        const first = issuesRelData.find((x) => x && x.id);
+        if (first && first.id) return { id: String(first.id).trim(), source: 'data.relationships.issues.data[0].id' };
     }
     if (issuesRelData && issuesRelData.id) {
-        return String(issuesRelData.id).trim();
+        return { id: String(issuesRelData.id).trim(), source: 'data.relationships.issues.data.id' };
     }
 
+    // Alternative relationship naming variants.
     const issuesContainer = relationships.issuesContainer || relationships.issueContainer || {};
     const relData = issuesContainer.data || {};
-    if (relData.id) return String(relData.id).trim();
+    if (relData.id) return { id: String(relData.id).trim(), source: 'data.relationships.issuesContainer.data.id' };
 
-    const services = Array.isArray(payload.services)
-        ? payload.services
-        : (Array.isArray(data.services) ? data.services : []);
-    for (const svc of services) {
-        if (!svc) continue;
-        const serviceId = String(svc.id || svc.serviceId || '').trim().toLowerCase();
-        if (serviceId !== 'issues') continue;
-        const containerId = String(svc.containerId || svc.containerID || svc.idValue || '').trim();
-        if (containerId) return containerId;
-    }
+    // Secondary source for older BIM360-style payloads.
+    if (extData.projectGuid) return { id: String(extData.projectGuid).trim(), source: 'data.attributes.extension.data.projectGuid' };
+    if (extData.issuesContainerId) return { id: String(extData.issuesContainerId).trim(), source: 'data.attributes.extension.data.issuesContainerId' };
 
-    const relationshipServices = (data.relationships && data.relationships.services && Array.isArray(data.relationships.services.data))
-        ? data.relationships.services.data
-        : [];
-    const included = Array.isArray(payload.included) ? payload.included : [];
-    for (const rel of relationshipServices) {
-        const relId = String((rel && rel.id) || '').trim();
-        if (!relId) continue;
-        const svc = included.find((x) => x && String(x.id || '').trim() === relId);
-        if (!svc) continue;
-        const attrs2 = svc.attributes || {};
-        const serviceId = String(attrs2.id || attrs2.serviceId || svc.id || '').trim().toLowerCase();
-        if (serviceId !== 'issues') continue;
-        const containerId = String(attrs2.containerId || attrs2.containerID || '').trim();
-        if (containerId) return containerId;
-    }
+    // Tertiary compatibility sources.
+    if (attrs.issuesContainerId) return { id: String(attrs.issuesContainerId).trim(), source: 'data.attributes.issuesContainerId' };
+    if (payload.issuesContainerId) return { id: String(payload.issuesContainerId).trim(), source: 'payload.issuesContainerId' };
+    if (payload.issueContainerId) return { id: String(payload.issueContainerId).trim(), source: 'payload.issueContainerId' };
 
-    return '';
+    return { id: '', source: 'none' };
 }
 
 async function fetchIssuesContainerId({ token, projectId, hubId }) {
@@ -230,16 +205,57 @@ async function fetchIssuesContainerId({ token, projectId, hubId }) {
 
             let parsed = null;
             try { parsed = JSON.parse(text); } catch (e) { parsed = {}; }
-            console.log('📄 project lookup response:', {
+            const responseData = parsed;
+
+            console.log('📄 [ACC project lookup] URL/context:', {
                 url,
                 projectIdUsed: candidate.projectIdUsed,
                 hubIdUsed: hubNormalized || null,
-                payload: parsed
+                responseStatus: response.status,
+                responseStatusText: response.statusText
             });
-            const issuesContainerId = extractIssuesContainerId(parsed);
+
+            try {
+                console.log('📄 [ACC project lookup] FULL RESPONSE BODY START');
+                console.log(JSON.stringify(responseData, null, 2));
+                console.log('📄 [ACC project lookup] FULL RESPONSE BODY END');
+            } catch (stringifyErr) {
+                console.warn('⚠️ [ACC project lookup] Could not stringify full response body:', stringifyErr && stringifyErr.message ? stringifyErr.message : stringifyErr);
+                console.log('📄 [ACC project lookup] Raw text body fallback:', text);
+            }
+
+            try {
+                const relationships = responseData && responseData.data && responseData.data.relationships
+                    ? responseData.data.relationships
+                    : null;
+                console.log('📌 [ACC project lookup] responseData.data.relationships START');
+                console.log(JSON.stringify(relationships, null, 2));
+                console.log('📌 [ACC project lookup] responseData.data.relationships END');
+            } catch (relErr) {
+                console.warn('⚠️ [ACC project lookup] Could not stringify responseData.data.relationships:', relErr && relErr.message ? relErr.message : relErr);
+            }
+
+            try {
+                const extensionData = responseData
+                    && responseData.data
+                    && responseData.data.attributes
+                    && responseData.data.attributes.extension
+                    && responseData.data.attributes.extension.data
+                    ? responseData.data.attributes.extension.data
+                    : null;
+                console.log('📌 [ACC project lookup] responseData.data.attributes.extension.data START');
+                console.log(JSON.stringify(extensionData, null, 2));
+                console.log('📌 [ACC project lookup] responseData.data.attributes.extension.data END');
+            } catch (extErr) {
+                console.warn('⚠️ [ACC project lookup] Could not stringify responseData.data.attributes.extension.data:', extErr && extErr.message ? extErr.message : extErr);
+            }
+
+            const extracted = extractIssuesContainerId(responseData);
+            const issuesContainerId = extracted.id;
             return {
                 ok: true,
                 issuesContainerId,
+                issuesContainerSource: extracted.source,
                 url,
                 projectIdUsed: candidate.projectIdUsed,
                 hubIdUsed: hubNormalized || null,
@@ -253,24 +269,29 @@ async function fetchIssuesContainerId({ token, projectId, hubId }) {
     return { ok: false, issuesContainerId: '', tried };
 }
 
-function buildMarkupEndpointCandidates(versionUrn) {
+function buildMarkupEndpointCandidates(versionUrn, projectId) {
+    const normalizedProjectId = normalizeProjectId(projectId);
+    if (!normalizedProjectId) {
+        throw new Error('Strict Mode: projectId fehlt fuer Markup-Endpoint-Ermittlung.');
+    }
+
     const encodedVersionUrn = encodeURIComponent(versionUrn);
 
     if (ACC_MARKUPS_POST_URL) {
         // Optional placeholders for env override:
         // {projectId}, {versionUrn}
         const expanded = ACC_MARKUPS_POST_URL
-            .replaceAll('{projectId}', PROJECT_ID)
+            .replaceAll('{projectId}', normalizedProjectId)
             .replaceAll('{versionUrn}', encodedVersionUrn);
         return [expanded];
     }
 
     // Fallback candidates (APS docs for markups changed over time).
     return [
-        `https://developer.api.autodesk.com/construction/markups/v1/projects/${PROJECT_ID}/markups`,
-        `https://developer.api.autodesk.com/construction/markups/v2/projects/${PROJECT_ID}/markups`,
-        `https://developer.api.autodesk.com/construction/markups/v1/projects/${PROJECT_ID}/versions/${encodedVersionUrn}/markups`,
-        `https://developer.api.autodesk.com/construction/markups/v2/projects/${PROJECT_ID}/versions/${encodedVersionUrn}/markups`
+        `https://developer.api.autodesk.com/construction/markups/v1/projects/${normalizedProjectId}/markups`,
+        `https://developer.api.autodesk.com/construction/markups/v2/projects/${normalizedProjectId}/markups`,
+        `https://developer.api.autodesk.com/construction/markups/v1/projects/${normalizedProjectId}/versions/${encodedVersionUrn}/markups`,
+        `https://developer.api.autodesk.com/construction/markups/v2/projects/${normalizedProjectId}/versions/${encodedVersionUrn}/markups`
     ];
 }
 
@@ -336,7 +357,17 @@ async function getIssueById({ token, projectId, issueId }) {
     }
 }
 
-async function createIssuePushpinFallback({ token, stamp }) {
+async function createIssuePushpinFallback({ token, stamp, projectId }) {
+    const normalizedProjectId = normalizeProjectId(projectId || stamp.projectId);
+    if (!normalizedProjectId) {
+        throw new Error('Strict Mode: projectId fehlt fuer createIssuePushpinFallback.');
+    }
+
+    const subtype = String(stamp.issueSubtypeId || '').trim();
+    if (!subtype) {
+        throw new Error('Strict Mode: issueSubtypeId fehlt im Fallback-Stamp-Payload.');
+    }
+
     const decodedUrnFull = decodeAutodeskUrn(stamp.urn || stamp.versionUrn || '');
     const decodedUrnNoQuery = decodedUrnFull.split('?')[0];
     const lineageUrnNoQuery = decodedUrnNoQuery
@@ -352,13 +383,11 @@ async function createIssuePushpinFallback({ token, stamp }) {
 
     const createdAtVersion = extractVersionNumber(decodedUrnFull, stamp.version);
     const viewName = (stamp.viewName && String(stamp.viewName).trim()) ? String(stamp.viewName) : 'ELIN Plan Prüfung';
-    const issueType = stamp.type === 'mangel' ? 'mangel' : 'allgemein';
-
     const issuePayload = {
         title: stamp.title || `ELIN: ${stamp.stampKey || 'Stempel'}`,
         // Keep fallback issues visible in ACC issue lists (many lists default to open only).
         status: 'open',
-        issueSubtypeId: issueType === 'mangel' ? SUBTYPE_ID_MANGEL : SUBTYPE_ID_ALLGEMEIN,
+        issueSubtypeId: subtype,
         description: [
             'Fallback: Markups-Endpoint in diesem Tenant nicht verfuegbar (404).',
             stamp.stampKey ? `StampKey: ${stamp.stampKey}` : null,
@@ -384,7 +413,7 @@ async function createIssuePushpinFallback({ token, stamp }) {
         ]
     };
 
-    const response = await fetch(`https://developer.api.autodesk.com/construction/issues/v1/projects/${PROJECT_ID}/issues`, {
+    const response = await fetch(`https://developer.api.autodesk.com/construction/issues/v1/projects/${normalizedProjectId}/issues`, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${token}`,
@@ -413,7 +442,7 @@ async function createIssuePushpinFallback({ token, stamp }) {
     // In that case metadata.issueId exists and we should not fail the whole request.
     if (parsed && parsed.errorCode === 'ISSUES_SERVICE_FAILED_TO_UPDATE_MARKUPS' && parsed.metadata && parsed.metadata.issueId) {
         const issueId = parsed.metadata.issueId;
-        const issueLookup = await getIssueById({ token, projectId: PROJECT_ID, issueId });
+        const issueLookup = await getIssueById({ token, projectId: normalizedProjectId, issueId });
 
         if (!issueLookup.exists) {
             throw new Error(
@@ -469,8 +498,8 @@ function buildPlacedStampSvg(stamp) {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${outMinX} ${outMinY} ${outWidth} ${outHeight}"><g transform="translate(${x} ${y}) scale(${scale}) translate(${-centerX} ${-centerY})">${fragment}</g></svg>`;
 }
 
-async function postMarkupToAcc({ token, versionUrn, svgString, title }) {
-    const endpoints = buildMarkupEndpointCandidates(versionUrn);
+async function postMarkupToAcc({ token, versionUrn, svgString, title, projectId }) {
+    const endpoints = buildMarkupEndpointCandidates(versionUrn, projectId);
     const requestBodies = [
         {
             versionUrn,
@@ -609,7 +638,11 @@ app.get('/api/debug/build', (req, res) => {
 });
 app.get('/api/debug/types', async (req, res) => {
     const token = req.session.internal_token;
-    const projectId = PROJECT_ID;
+    const projectId = normalizeProjectId(req.query.projectId);
+
+    if (!projectId) {
+        return res.status(400).send('Strict Mode: projectId query parameter fehlt.');
+    }
 
     try {
         // WICHTIG: Wir hängen ?include=subtypes an, um die Unter-IDs zu sehen!
@@ -644,7 +677,10 @@ app.get('/api/issues/types', async (req, res) => {
         if (!token) throw new Error('Kein Benutzer-Token gefunden. Bitte neu einloggen.');
 
         const reqProjectIdRaw = String(req.query.projectId || '').trim();
-        const projectId = normalizeProjectId(reqProjectIdRaw) || PROJECT_ID;
+        const projectId = normalizeProjectId(reqProjectIdRaw);
+        if (!projectId) {
+            throw new Error('Strict Mode: projectId query parameter fehlt.');
+        }
 
         const catalog = await fetchIssueTypeCatalog({ token, projectId });
         if (!catalog.ok) throw new Error(catalog.error);
@@ -736,13 +772,13 @@ app.post('/api/issues/create', async (req, res) => {
         const reqHubId = normalizeHubId(req.body.hubId);
         const stampHubId = normalizeHubId(stampsData[0] && stampsData[0].hubId);
         const targetHubId = reqHubId || stampHubId || '';
-        const targetProjectId = reqProjectId || stampProjectId || PROJECT_ID;
+        const targetProjectId = reqProjectId || stampProjectId;
         const targetProjectIdForProjectApi = normalizeProjectIdWithPrefix(reqProjectIdRaw || stampProjectIdRaw || targetProjectId);
 
         if (!targetHubId || !targetProjectIdForProjectApi) {
             return res.status(400).json({
                 success: false,
-                message: 'hubId/projectId fehlen fuer den ACC Project-Lookup. Bitte im Sidebar-Baum Projektkontext auswaehlen.'
+                message: 'Strict Mode: hubId/projectId fehlen fuer den ACC Project-Lookup. Bitte im Sidebar-Baum Projektkontext auswaehlen.'
             });
         }
 
@@ -755,7 +791,6 @@ app.post('/api/issues/create', async (req, res) => {
             targetProjectIdForProjectApi,
             reqProjectId,
             stampProjectId,
-            fallbackProjectId: PROJECT_ID,
             targetProjectId
         });
 
@@ -780,25 +815,35 @@ app.post('/api/issues/create', async (req, res) => {
         }
 
         const typeCatalog = await fetchIssueTypeCatalog({ token, projectId: targetProjectId });
-        const activeSubtypeIds = typeCatalog.ok ? typeCatalog.activeSubtypeIds : new Set();
-        const defaultActiveSubtypeId = typeCatalog.ok ? (typeCatalog.firstActiveSubtypeId || '') : '';
         if (!typeCatalog.ok) {
-            console.warn('⚠️ Konnte aktive Subtypes nicht vorab laden. Fallback auf statische IDs.', {
-                projectId: targetProjectId,
-                error: typeCatalog.error
-            });
+            throw new Error(`Strict Mode: aktive Subtypes konnten nicht geladen werden (${typeCatalog.error}).`);
+        }
+
+        const activeSubtypeIds = typeCatalog.activeSubtypeIds;
+        const defaultActiveSubtypeId = typeCatalog.firstActiveSubtypeId || '';
+        if (!defaultActiveSubtypeId || activeSubtypeIds.size === 0) {
+            throw new Error('Strict Mode: kein aktiver Issue-Subtype im Projekt verfuegbar.');
         }
         
         const createdIssues = [];
 
         for (const stamp of stampsData) {
-            // URN Dekodieren: Von dXJu... (Base64) zu urn:adsk... (Klartext)
-            const rawOriginalUrn = stamp.originalUrn || stamp.urn || stamp.versionUrn || '';
-            let decodedUrnFull = decodeAutodeskUrn(rawOriginalUrn);
-            if (!decodedUrnFull) {
-                throw new Error(`Stamp ${stamp.id || ''}: originalUrn fehlt im Payload.`);
+            const itemIdRaw = String(stamp.itemId || '').trim();
+            const versionIdRaw = String(stamp.versionId || '').trim();
+            const linkedDocumentUrn = String(stamp.linkedDocumentUrn || '').trim();
+            const subtypeCandidate = String(stamp.issueSubtypeId || '').trim();
+
+            if (!itemIdRaw || !versionIdRaw || !linkedDocumentUrn) {
+                throw new Error(`Strict Mode: Stamp ${stamp.id || ''} hat kein itemId/versionId/linkedDocumentUrn.`);
             }
-            const decodedUrnNoQuery = decodedUrnFull.split('?')[0];
+
+            if (!isLineageUrn(linkedDocumentUrn)) {
+                throw new Error(`Strict Mode: Stamp ${stamp.id || ''} linkedDocumentUrn ist kein gueltiges dm.lineage URN.`);
+            }
+
+            if (!subtypeCandidate || !activeSubtypeIds.has(subtypeCandidate)) {
+                throw new Error(`Strict Mode: Stamp ${stamp.id || ''} hat keinen aktiven issueSubtypeId.`);
+            }
 
             console.log('📋 Processing stamp:', {
                 id: stamp.id,
@@ -806,39 +851,33 @@ app.post('/api/issues/create', async (req, res) => {
                 linkedType: stamp.linkedDocumentType,
                 is3D: stamp.is3D,
                 viewId: stamp.viewId,
-                originalUrn: stamp.urn,
-                decodedUrnFull,
-                decodedUrnNoQuery
+                itemId: itemIdRaw,
+                versionId: versionIdRaw,
+                linkedDocumentUrn
             });
-
-            // ACC verlangt oft das dm.lineage Format
-            const lineageUrnNoQuery = decodedUrnNoQuery.replace(':fs.file:vf.', ':dm.lineage:').replace(':fs.file:v.', ':dm.lineage:').split('?')[0];
-            const resolvedVersionUrn = resolveVersionUrn(stamp);
-            const decodedVersionUrn = decodeAutodeskUrn(stamp.versionUrn || '');
-            const providedLinkedUrn = decodeAutodeskUrn(stamp.linkedDocumentUrn || '').split('?')[0]
-                .replace(':fs.file:vf.', ':dm.lineage:')
-                .replace(':fs.file:v.', ':dm.lineage:');
 
             const requestedType = stamp.linkedDocumentType || (stamp.is3D ? 'ThreeDVectorPushpin' : 'TwoDVectorPushpin');
             const is3D = requestedType === 'ThreeDVectorPushpin' || !!stamp.is3D;
             const is2D = !is3D;
 
-            const linkedUrnCandidates2D = uniqueNonEmpty([
-                providedLinkedUrn,
-                lineageUrnNoQuery
-            ]).filter((u) => isLineageUrn(u));
-
-            if (is2D && linkedUrnCandidates2D.length === 0) {
-                throw new Error(`Stamp ${stamp.id || ''}: keine gueltige dm.lineage URN ableitbar (linkedDocumentUrn=${stamp.linkedDocumentUrn || ''}, urn=${stamp.urn || ''}).`);
-            }
-
             const pushpinPos = is2D
                 ? (stamp.accNormalizedPosition || stamp.accPosition || stamp.dbWorld || stamp.worldPosition || stamp.position || { x: 0, y: 0, z: 0 })
                 : (stamp.accPosition || stamp.dbWorld || stamp.worldPosition || stamp.position || { x: 0, y: 0, z: 0 });
             const viewName = (stamp.viewName && String(stamp.viewName).trim()) ? String(stamp.viewName) : 'ELIN Plan Prüfung';
-            const createdAtVersion = parseVersionFromVersionUrn(stamp.versionUrn || stamp.urn, stamp.version);
-            const subtypeCandidate = stamp.issueSubtypeId ? String(stamp.issueSubtypeId) : '';
-            const hasSubtypeUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(subtypeCandidate);
+            const createdAtVersion = (() => {
+                const explicit = Number(stamp.createdAtVersion);
+                if (Number.isFinite(explicit) && explicit > 0) return Math.round(explicit);
+                const match = String(versionIdRaw || '').match(/[?&]version=(\d+)/i);
+                if (match) {
+                    const v = parseInt(match[1], 10);
+                    if (Number.isFinite(v) && v > 0) return v;
+                }
+                return 1;
+            })();
+
+            if (is2D && !stamp.viewId) {
+                throw new Error(`Strict Mode: viewId fehlt fuer 2D-Stamp ${stamp.id || ''}.`);
+            }
 
             // Keep precision from viewer coordinates.
             const positionPrecise = {
@@ -851,13 +890,7 @@ app.post('/api/issues/create', async (req, res) => {
                 title: (stamp.title || 'ELIN Stempel').replace('Ã¼', 'ü'),
                 // Keep newly created issues visible in ACC lists.
                 status: 'open',
-                issueSubtypeId: (() => {
-                    const fallbackSubtype = stamp.type === 'mangel' ? SUBTYPE_ID_MANGEL : SUBTYPE_ID_ALLGEMEIN;
-                    if (hasSubtypeUuid && activeSubtypeIds.has(subtypeCandidate)) return subtypeCandidate;
-                    if (defaultActiveSubtypeId) return defaultActiveSubtypeId;
-                    if (hasSubtypeUuid) return subtypeCandidate;
-                    return fallbackSubtype;
-                })(),
+                issueSubtypeId: subtypeCandidate || defaultActiveSubtypeId,
                 description: [
                     stamp.stampKey ? `StampKey: ${stamp.stampKey}` : null,
                     stamp.stampLabel ? `StampLabel: ${stamp.stampLabel}` : null,
@@ -882,53 +915,7 @@ app.post('/api/issues/create', async (req, res) => {
                 return { response, responseText, parsedBody, parsedError, requestPayload: payload };
             };
 
-            const sendIssueViaContainer = async (payload) => {
-                if (!issuesContainerId) {
-                    return null;
-                }
-                const endpoint = `https://developer.api.autodesk.com/issues/v1/containers/${encodeURIComponent(issuesContainerId)}/issues`;
-                console.log('📤 Sending to ACC Container API (fallback):', JSON.stringify({ endpoint, payload }, null, 2));
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                const responseText = await response.text();
-                let parsedBody = null;
-                try { parsedBody = JSON.parse(responseText); } catch (e) { /* ignore */ }
-                const parsedError = response.ok ? null : parsedBody;
-                return {
-                    response,
-                    responseText,
-                    parsedBody,
-                    parsedError,
-                    requestPayload: payload,
-                    endpoint
-                };
-            };
-
-            const sendIssue = async (payload) => {
-                if (issuesContainerId) {
-                    const byContainer = await sendIssueViaContainer(payload);
-                    if (byContainer && byContainer.response && byContainer.response.ok) {
-                        return byContainer;
-                    }
-                    if (byContainer) {
-                        console.warn('⚠️ Container-Issue-Endpoint abgelehnt, fallback auf project endpoint.', {
-                            endpoint: byContainer.endpoint,
-                            status: byContainer.response.status,
-                            statusText: byContainer.response.statusText,
-                            autodeskError: byContainer.parsedError || byContainer.responseText,
-                            issuesContainerId
-                        });
-                    }
-                }
-                return sendIssueProject(payload);
-            };
+            const sendIssue = async (payload) => sendIssueProject(payload);
 
             const detailToText = (details) => {
                 if (!details) return '';
@@ -948,7 +935,7 @@ app.post('/api/issues/create', async (req, res) => {
                 linkedDocuments: [
                     {
                         type: 'TwoDVectorPushpin',
-                        urn: lineageUrnNoQuery,
+                        urn: linkedDocumentUrn,
                         createdAtVersion,
                         details: {
                             viewable: {
@@ -965,34 +952,12 @@ app.post('/api/issues/create', async (req, res) => {
                 ]
             };
 
-            const buildPayload2DForUrn = (urnValue) => ({
-                ...basePayload,
-                linkedDocuments: [
-                    {
-                        type: 'TwoDVectorPushpin',
-                        urn: urnValue,
-                        createdAtVersion,
-                        details: {
-                            viewable: {
-                                id: stamp.viewId,
-                                name: viewName,
-                                is3D: false
-                            },
-                            position: {
-                                x: positionPrecise.x,
-                                y: positionPrecise.y
-                            }
-                        }
-                    }
-                ]
-            });
-
             const payload3DPrimary = {
                 ...basePayload,
                 linkedDocuments: [
                     {
                         type: 'ThreeDVectorPushpin',
-                        urn: lineageUrnNoQuery,
+                        urn: linkedDocumentUrn,
                         createdAtVersion,
                         details: {
                             viewable: {
@@ -1012,7 +977,7 @@ app.post('/api/issues/create', async (req, res) => {
                 linkedDocuments: [
                     {
                         type: 'TwoDVectorPushpin',
-                        urn: lineageUrnNoQuery,
+                        urn: linkedDocumentUrn,
                         createdAtVersion,
                         details: {
                             viewable: {
@@ -1029,53 +994,19 @@ app.post('/api/issues/create', async (req, res) => {
             let result = null;
 
             if (is2D) {
-                const attempts = linkedUrnCandidates2D.length > 0 ? linkedUrnCandidates2D : [lineageUrnNoQuery];
-                for (let i = 0; i < attempts.length; i++) {
-                    const urnCandidate = attempts[i];
-                    const payloadCandidate = buildPayload2DForUrn(urnCandidate);
-                    result = await sendIssue(payloadCandidate);
+                result = await sendIssue(payload2D);
 
-                    if (result.response.ok) {
-                        if (i > 0) {
-                            console.log('✅ 2D Pushpin akzeptiert mit URN-Fallback:', { urnCandidate, attempt: i + 1, attempts: attempts.length });
-                        }
-                        break;
-                    }
-
+                if (!result.response.ok) {
                     console.error('❌ 2D Pushpin Versuch fehlgeschlagen:', {
-                        attempt: i + 1,
-                        attempts: attempts.length,
-                        urnCandidate,
+                        urnCandidate: linkedDocumentUrn,
                         status: result.response.status,
                         statusText: result.response.statusText,
                         autodeskError: result.parsedError || result.responseText,
-                        requestPayload: payloadCandidate,
+                        requestPayload: payload2D,
                         issuesContainerId
                     });
                 }
 
-                if (result && !result.response.ok && issuesContainerId) {
-                    const fallbackPayload = buildPayload2DForUrn(attempts[0]);
-                    const containerResult = await sendIssueViaContainer(fallbackPayload);
-                    if (containerResult) {
-                        if (containerResult.response.ok) {
-                            console.log('✅ 2D Pushpin akzeptiert ueber Container-Fallback-Endpoint:', {
-                                endpoint: containerResult.endpoint,
-                                issuesContainerId
-                            });
-                            result = containerResult;
-                        } else {
-                            console.error('❌ Container-Fallback fuer 2D Pushpin fehlgeschlagen:', {
-                                endpoint: containerResult.endpoint,
-                                issuesContainerId,
-                                status: containerResult.response.status,
-                                statusText: containerResult.response.statusText,
-                                autodeskError: containerResult.parsedError || containerResult.responseText,
-                                requestPayload: fallbackPayload
-                            });
-                        }
-                    }
-                }
             } else {
                 result = await sendIssue(payload3DPrimary);
             }
@@ -1139,49 +1070,68 @@ app.post('/api/issues/create', async (req, res) => {
                 throw new Error('ACC Token ist abgelaufen oder ungültig (AUTH-006). Bitte neu einloggen und erneut senden.');
             }
 
-            if (errorCode === 'ISSUES_SERVICE_FAILED_TO_UPDATE_MARKUPS' && result.parsedError && result.parsedError.metadata && result.parsedError.metadata.issueId) {
-                const issueId = result.parsedError.metadata.issueId;
-                
-                // Retry issue creation without linkedDocuments so issue list still gets entry.
-                const pureIssuePayload = {
-                    ...basePayload
-                };
+            if (
+                errorCode === 'ISSUES_SERVICE_FAILED_TO_UPDATE_MARKUPS'
+                && result.parsedError
+                && result.parsedError.metadata
+                && result.parsedError.metadata.issueId
+            ) {
+                const issueId = String(result.parsedError.metadata.issueId).trim();
+                console.warn('⚠️ ACC hat ein Issue erzeugt, aber Pushpin/Annotation konnte nicht gespeichert werden. Lade Issue per issueId nach.', {
+                    issueId,
+                    targetProjectId
+                });
 
-                const pureIssueResult = await sendIssue(pureIssuePayload);
-                if (pureIssueResult.response.ok) {
-                    const issue = JSON.parse(pureIssueResult.responseText);
-                    const markupResult = await postContainerMarkup({
-                        token,
-                        projectId: targetProjectId,
-                        stamp,
-                        issuesContainerId,
-                        issueId: issue.id || issue.displayId
-                    });
-
+                // Sichtbarkeits-Fallback: explizit ein reines Issue ohne linkedDocuments erzeugen,
+                // damit die Aufgabe in ACC-Listen sicher erscheint.
+                const plainIssuePayload = { ...basePayload };
+                const plainIssueResult = await sendIssueProject(plainIssuePayload);
+                if (plainIssueResult.response.ok) {
+                    const plainIssue = plainIssueResult.parsedBody || JSON.parse(plainIssueResult.responseText);
                     createdIssues.push({
-                        ...issue,
-                        warning: markupResult.ok
-                            ? 'Issue ohne Pushpin erstellt, SVG-Markup separat angelegt.'
-                            : 'Issue ohne Pushpin erstellt (ACC Markup-Anlage fehlgeschlagen).',
-                        markup: markupResult.ok ? markupResult.markup : undefined,
-                        markupError: (!markupResult.ok && !markupResult.skipped) ? markupResult.error : undefined
+                        ...plainIssue,
+                        warning: 'Issue erstellt ohne 2D-Pushpin, da ACC das Annotation-Markup abgelehnt hat.'
                     });
-                    console.warn('⚠️ Pushpin fehlgeschlagen, aber Issue ohne linkedDocuments erstellt:', issue.displayId || issue.id);
+                    console.warn('⚠️ Fallback erfolgreich: Issue ohne linkedDocuments erstellt.', {
+                        displayId: plainIssue.displayId || null,
+                        id: plainIssue.id || null
+                    });
                     continue;
                 }
 
-                const lookup = await getIssueById({ token, projectId: targetProjectId, issueId });
+                console.warn('⚠️ Fallback-Issue ohne linkedDocuments fehlgeschlagen, versuche Issue-Lookup per metadata.issueId.', {
+                    status: plainIssueResult.response.status,
+                    statusText: plainIssueResult.response.statusText,
+                    autodeskError: plainIssueResult.parsedError || plainIssueResult.responseText
+                });
 
-                if (!lookup.exists) {
-                    throw new Error(`ACC meldet issueId=${issueId}, aber das Issue ist im Projekt nicht abrufbar (${lookup.status} ${lookup.statusText}).`);
+                const lookup = await getIssueById({ token, projectId: targetProjectId, issueId });
+                if (lookup.exists) {
+                    const verifiedIssue = lookup.issue || { id: issueId, displayId: issueId };
+                    createdIssues.push({
+                        ...verifiedIssue,
+                        warning: 'Issue erstellt, aber ACC konnte den 2D-Pushpin (Markup) nicht speichern.'
+                    });
+                    continue;
                 }
 
-                const verifiedIssue = lookup.issue || { id: issueId, displayId: issueId };
-                createdIssues.push({
-                    ...verifiedIssue,
-                    warning: 'Issue erstellt, aber Markup konnte nicht platziert werden.'
+                // Some tenants return issueId in metadata but immediate GET can be eventually-consistent (404).
+                console.warn('⚠️ Issue-Lookup direkt nach Markup-Fehler nicht verfuegbar, liefere synthetic success mit warning.', {
+                    issueId,
+                    lookupStatus: lookup.status || null,
+                    lookupStatusText: lookup.statusText || null,
+                    lookupRaw: lookup.raw || null
                 });
-                console.warn('⚠️ Issue erstellt, aber Markup fehlgeschlagen:', issueId, detail);
+
+                createdIssues.push({
+                    id: issueId,
+                    displayId: issueId,
+                    warning: 'Issue wurde von ACC gemeldet, aber ist noch nicht abrufbar; 2D-Pushpin/Markup wurde nicht gespeichert.',
+                    lookup: {
+                        status: lookup.status || null,
+                        statusText: lookup.statusText || null
+                    }
+                });
                 continue;
             }
 
@@ -1217,6 +1167,11 @@ app.post('/api/markups/create', async (req, res) => {
         let warningCount = 0;
 
         for (const stamp of stampsData) {
+            const stampProjectId = normalizeProjectId(stamp.projectId || req.body.projectId);
+            if (!stampProjectId) {
+                throw new Error(`Strict Mode: projectId fehlt fuer Stamp ${stamp.id || ''} in /api/markups/create.`);
+            }
+
             const versionUrn = resolveVersionUrn(stamp);
             if (!versionUrn) {
                 throw new Error(`Stamp ${stamp.id || ''}: versionUrn konnte nicht bestimmt werden.`);
@@ -1225,10 +1180,10 @@ app.post('/api/markups/create', async (req, res) => {
             const svgString = buildPlacedStampSvg(stamp);
             const title = stamp.title || `ELIN: ${stamp.stampKey || 'Stempel'}`;
 
-            const result = await postMarkupToAcc({ token, versionUrn, svgString, title });
+            const result = await postMarkupToAcc({ token, versionUrn, svgString, title, projectId: stampProjectId });
             if (!result.ok) {
                 if (result.error && result.error.status === 404) {
-                    const fallbackResult = await createIssuePushpinFallback({ token, stamp });
+                    const fallbackResult = await createIssuePushpinFallback({ token, stamp, projectId: stampProjectId });
                     const issue = fallbackResult.issue;
                     fallbackIssueCount += 1;
                     if (fallbackResult.warning) warningCount += 1;
