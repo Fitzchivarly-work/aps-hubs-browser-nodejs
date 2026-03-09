@@ -96,6 +96,13 @@ app.post('/api/issues/create', async (req, res) => {
 
             const requestedType = stamp.linkedDocumentType || "TwoDVectorPushpin";
             const is2D = requestedType === 'TwoDVectorPushpin';
+            // For 2D sheets we prefer normalized positions from ACC:
+            // - accNormalizedPosition stores coordinates normalized to the sheet size (0..1 in X/Y),
+            //   so pushpins stay at the correct location regardless of sheet resolution, DPI or export scale.
+            // - accPosition stores the original model / absolute coordinates as used by the viewer.
+            //   This is still used for 3D models and as a fallback for older 2D data that has no normalized coords.
+            // The precedence below (normalized -> accPosition -> position) preserves existing behavior while
+            // explicitly favoring stable, resolution‑independent positions for 2D markups.
             const pushpinPos = is2D
                 ? (stamp.accNormalizedPosition || stamp.accPosition || stamp.position || { x: 0, y: 0, z: 0 })
                 : (stamp.accPosition || stamp.position || { x: 0, y: 0, z: 0 });

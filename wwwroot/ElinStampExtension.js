@@ -1056,8 +1056,9 @@
       const ctxItemId = String(ctx.itemId).trim();
       const ctxVersionId = String(ctx.versionId).trim();
       const versionMatch = String(ctxVersionId).match(/[?&]version=(\d+)/i);
-      const createdAtVersion = (versionMatch && Number.isFinite(parseInt(versionMatch[1], 10)) && parseInt(versionMatch[1], 10) > 0)
-        ? parseInt(versionMatch[1], 10)
+      const parsedVersion = versionMatch ? parseInt(versionMatch[1], 10) : NaN;
+      const createdAtVersion = (Number.isFinite(parsedVersion) && parsedVersion > 0)
+        ? parsedVersion
         : 1;
 
       console.log('[ELIN] Model Debug:', {
