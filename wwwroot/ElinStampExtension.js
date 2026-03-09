@@ -691,9 +691,7 @@
       issueTypeSel.addEventListener('change', () => {
         const v = issueTypeSel.value;
         if (!v) return;
-        this._defaultIssueType = v;
         this._defaultIssueSubtypeId = v;
-        for (const s of this._selected) s.issueType = v;
         for (const s of this._selected) s.issueSubtypeId = v;
         this._saveStampsToLocal();
       });
@@ -727,10 +725,10 @@
       this._propsPanel.style.display = 'flex';
       this._propsPanel.querySelector('[data-role="selcount"]').textContent = String(this._selected.length);
 
-      const types = new Set(this._selected.map((s) => s.issueSubtypeId || s.issueType || this._defaultIssueSubtypeId || 'allgemein'));
+      const types = new Set(this._selected.map((s) => s.issueSubtypeId || this._defaultIssueSubtypeId || ''));
       const issueSel = this._propsPanel.querySelector('[data-role="issuetype"]');
       if (types.size === 1) issueSel.value = Array.from(types)[0];
-      else issueSel.value = this._defaultIssueSubtypeId || this._defaultIssueType || 'allgemein';
+      else issueSel.value = this._defaultIssueSubtypeId || '';
 
       const scales = this._selected.map((s) => (typeof s.scale === 'number' ? s.scale : 1));
       const avg = scales.reduce((a, b) => a + b, 0) / Math.max(1, scales.length);
@@ -836,9 +834,35 @@
         const projectId = ctx.projectId ? String(ctx.projectId).trim() : '';
         if (!hubId || !projectId) return;
 
-        const res = await fetch(`/api/hubs/${encodeURIComponent(hubId)}/projects/${encodeURIComponent(projectId)}/issuetypes`, { cache: 'no-store' });
-        if (!res.ok) return;
-        const out = await res.json();
+        let out = null;
+        const primaryUrl = `/api/hubs/${encodeURIComponent(hubId)}/projects/${encodeURIComponent(projectId)}/issuetypes`;
+        const fallbackUrl = `/api/issues/types?projectId=${encodeURIComponent(projectId)}`;
+
+        let res = await fetch(primaryUrl, { cache: 'no-store' });
+        if (!res.ok) {
+          console.warn('[ELIN] Hub/Projekt-Issue-Types Endpoint fehlgeschlagen, versuche Fallback.', {
+            url: primaryUrl,
+            status: res.status,
+            statusText: res.statusText
+          });
+          res = await fetch(fallbackUrl, { cache: 'no-store' });
+        }
+
+        if (!res.ok) {
+          console.warn('[ELIN] Issue-Subtypes konnten nicht geladen werden.', {
+            primaryUrl,
+            fallbackUrl,
+            status: res.status,
+            statusText: res.statusText
+          });
+          if (this._propsPanel) {
+            const sel = this._propsPanel.querySelector('[data-role="issuetype"]');
+            if (sel) sel.innerHTML = '<option value="">ACC Subtypes konnten nicht geladen werden</option>';
+          }
+          return;
+        }
+
+        out = await res.json();
         if (!out || !Array.isArray(out.options) || out.options.length === 0) return;
 
         this._issueSubtypeOptions = out.options
@@ -863,7 +887,13 @@
             sel.innerHTML = this._issueSubtypeOptions
               .map((o) => `<option value="${o.value}">${o.label}</option>`)
               .join('');
-            sel.value = this._defaultIssueSubtypeId;
+            sel.value = this._defaultIssueSubtypeId || this._issueSubtypeOptions[0].value;
+          }
+        }
+
+        for (const stamp of this._stamps) {
+          if (!stamp.issueSubtypeId) {
+            stamp.issueSubtypeId = this._defaultIssueSubtypeId;
           }
         }
       } catch (e) {
