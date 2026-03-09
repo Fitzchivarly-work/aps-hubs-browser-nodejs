@@ -210,11 +210,6 @@
     }
 
     // -------------------- Helpers (keine externen Imports nötig) --------------------
-    _toInt(n, fallback) {
-      const v = Number(n);
-      return Number.isFinite(v) ? Math.round(v) : (fallback || 0);
-    }
-
     _is2DModel() {
       const model = this.viewer && this.viewer.model;
       if (!model) return false;
@@ -266,7 +261,7 @@
         y = Number(worldPos.y) - Number(bbox.min.y);
       }
 
-      return { x: this._toInt(x), y: this._toInt(y), z: 0 };
+      return { x: Number(x) || 0, y: Number(y) || 0, z: 0 };
     }
 
     _toPlainPos(v) {
@@ -1051,6 +1046,20 @@
       const model = this.viewer.model;
       if (!model) throw new Error('Kein Model geladen.');
 
+      const ctx = window.ELIN_TREE_CTX || {};
+      if (!ctx.hubId || !ctx.projectId || !ctx.itemId || !ctx.versionId) {
+        throw new Error('Fehlende Kontext-IDs. Bitte Blatt in der Sidebar neu auswählen.');
+      }
+
+      const selectedHubId = String(ctx.hubId).trim();
+      const selectedProjectId = String(ctx.projectId).trim();
+      const ctxItemId = String(ctx.itemId).trim();
+      const ctxVersionId = String(ctx.versionId).trim();
+      const versionMatch = String(ctxVersionId).match(/[?&]version=(\d+)/i);
+      const createdAtVersion = (versionMatch && Number.isFinite(parseInt(versionMatch[1], 10)) && parseInt(versionMatch[1], 10) > 0)
+        ? parseInt(versionMatch[1], 10)
+        : 1;
+
       console.log('[ELIN] Model Debug:', {
         hasGetSeedUrn: typeof model.getSeedUrn === 'function',
         hasGetDocumentNode: typeof model.getDocumentNode === 'function',
@@ -1063,58 +1072,17 @@
       const viewableId = (docNode && docNode.data && docNode.data.guid) ? docNode.data.guid : null;
       const viewableName = (docNode && docNode.data && docNode.data.name) ? String(docNode.data.name) : 'ELIN Plan Prüfung';
 
-      // Mehrere Methoden versuchen, die URN zu bekommen
-      let fullUrn = null;
-      
-      // Methode 1: getSeedUrn() (Standard für APS Viewer)
-      if (model.getSeedUrn && typeof model.getSeedUrn === 'function') {
-        fullUrn = model.getSeedUrn();
-        console.log('[ELIN] URN from getSeedUrn():', fullUrn);
-      }
-      
-      // Methode 2: myData.urn (Fallback)
-      if (!fullUrn && model.myData && model.myData.urn) {
-        fullUrn = model.myData.urn;
-        console.log('[ELIN] URN from myData.urn:', fullUrn);
-      }
-      
-      // Methode 3: loader.svfUrn (Fallback für SVF)
-      if (!fullUrn && model.loader && model.loader.svfUrn) {
-        fullUrn = model.loader.svfUrn;
-        console.log('[ELIN] URN from loader.svfUrn:', fullUrn);
-      }
-      
-      // Methode 4: Document URN (aus docNode)
-      if (!fullUrn && docNode && docNode.data) {
-        if (docNode.data.urn) {
-          fullUrn = docNode.data.urn;
-          console.log('[ELIN] URN from docNode.data.urn:', fullUrn);
-        } else if (docNode.getRootNode && docNode.getRootNode()) {
-          const root = docNode.getRootNode();
-          if (root.data && root.data.urn) {
-            fullUrn = root.data.urn;
-            console.log('[ELIN] URN from root.data.urn:', fullUrn);
-          }
-        }
-      }
-
-      const versionNumRaw = (docNode && docNode.data && docNode.data.versionNumber) ? docNode.data.versionNumber : 1;
-      const versionNum = parseInt(versionNumRaw, 10) || 1;
-
-      if (!fullUrn) {
-        console.error('[ELIN] Failed to get URN. Model structure:', {
-          model: Object.keys(model),
-          docNode: docNode ? Object.keys(docNode) : null,
-          docNodeData: docNode && docNode.data ? Object.keys(docNode.data) : null
-        });
-        throw new Error('URN konnte nicht ermittelt werden. Prüfe die Console für Details.');
-      }
+      const linkedDocumentUrn = ctxItemId;
 
       const is2D = this._is2DModel();
       console.log('[ELIN] Sending to ACC - Model is 2D:', is2D);
       console.log('[ELIN] ViewableId:', viewableId);
       console.log('[ELIN] ViewableName:', viewableName);
-      console.log('[ELIN] URN:', fullUrn);
+      console.log('[ELIN] projectId:', selectedProjectId);
+      console.log('[ELIN] hubId:', selectedHubId);
+      console.log('[ELIN] itemId:', ctxItemId);
+      console.log('[ELIN] versionId:', ctxVersionId);
+      console.log('[ELIN] createdAtVersion (strict from versionId):', createdAtVersion);
 
       const payload = this._selected.map((s) => {
         const def = this._library.get(s.stampKey);
@@ -1134,6 +1102,7 @@
 
           // Backend-Mapping (issueSubtypeId)
           type,
+          issueSubtypeId: s.issueSubtypeId || null,
           status,
 
           // Sichtbarer ACC-Titel + eindeutige Stempel-ID
@@ -1153,15 +1122,25 @@
 
           viewId: viewableId,
           viewName: viewableName,
-          urn: fullUrn,
-          version: versionNum
+          hubId: selectedHubId,
+          projectId: selectedProjectId,
+          itemId: ctxItemId,
+          versionId: ctxVersionId,
+          version: createdAtVersion,
+          createdAtVersion,
+          linkedDocumentUrn,
+          urn: linkedDocumentUrn
         };
       });
 
       const res = await fetch('/api/issues/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stamps: payload })
+        body: JSON.stringify({
+          hubId: selectedHubId,
+          projectId: selectedProjectId,
+          stamps: payload
+        })
       });
 
       if (!res.ok) {

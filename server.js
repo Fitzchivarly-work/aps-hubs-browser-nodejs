@@ -15,7 +15,11 @@ app.get('/api/debug/build', (req, res) => {
 });
 app.get('/api/debug/types', async (req, res) => {
     const token = req.session.internal_token;
-    const projectId = "bd116dfe-b5d8-4cf9-98ed-68bb5316db04";
+    const projectIdRaw = String(req.query.projectId || '').trim();
+    const projectId = projectIdRaw.replace(/^b\./i, '');
+    if (!projectId) {
+        return res.status(400).send('projectId query parameter fehlt.');
+    }
 
     try {
         // WICHTIG: Wir hängen ?include=subtypes an, um die Unter-IDs zu sehen!
@@ -46,28 +50,37 @@ app.get('/api/debug/types', async (req, res) => {
 app.post('/api/issues/create', async (req, res) => {
     try {
         console.log(`🚀 /api/issues/create build=${SERVER_BUILD}`);
-        const stampsData = req.body.stamps;
+        const stampsData = Array.isArray(req.body.stamps) ? req.body.stamps : [];
         const token = req.session.internal_token; 
         if (!token) throw new Error("Kein Benutzer-Token gefunden. Bitte neu einloggen.");
+        if (stampsData.length === 0) throw new Error('Keine Stempel-Daten erhalten (stamps ist leer).');
 
-        const PROJECT_ID = "bd116dfe-b5d8-4cf9-98ed-68bb5316db04"; 
-        
-        // --- DIE ECHTEN ROTEN IDs AUS DEINEM PROJEKT ---
-        // Kategorie: Allgemein -> Unterkategorie: Mangel
-        const SUBTYPE_ID_MANGEL = "3f0a4ddd-8377-465c-835c-ad72b8aa2439"; 
-        // Kategorie: Allgemein -> Unterkategorie: Allgemein
-        const SUBTYPE_ID_ALLGEMEIN = "2c12ca9f-5317-5200-b91f-8c7094cd42e4";
+        const reqProjectIdRaw = String(req.body.projectId || '').trim();
+        const firstStampProjectIdRaw = String((stampsData[0] && stampsData[0].projectId) || '').trim();
+        const targetProjectId = (reqProjectIdRaw || firstStampProjectIdRaw || '').replace(/^b\./i, '');
+        if (!targetProjectId) {
+            throw new Error('Fehlende projectId im Request. Bitte Blatt in der Sidebar neu auswählen.');
+        }
 
         const createdIssues = [];
 
         for (const stamp of stampsData) {
-            // URN Dekodieren: Von dXJu... (Base64) zu urn:adsk... (Klartext)
-            let decodedUrnFull = stamp.urn;
-            if (!stamp.urn.startsWith('urn:adsk')) {
-                const buffer = Buffer.from(stamp.urn, 'base64');
-                decodedUrnFull = buffer.toString('utf-8');
+            const linkedDocumentUrn = String(stamp.linkedDocumentUrn || '').trim();
+            const versionId = String(stamp.versionId || '').trim();
+            const createdAtVersion = Number.isFinite(Number(stamp.createdAtVersion)) && Number(stamp.createdAtVersion) > 0
+                ? Math.round(Number(stamp.createdAtVersion))
+                : (() => {
+                    const m = versionId.match(/[?&]version=(\d+)/i);
+                    if (m) {
+                        const v = parseInt(m[1], 10);
+                        if (Number.isFinite(v) && v > 0) return v;
+                    }
+                    return 1;
+                })();
+
+            if (!linkedDocumentUrn) {
+                throw new Error(`Stamp ${stamp.id || ''}: linkedDocumentUrn fehlt im Request.`);
             }
-            const decodedUrnNoQuery = decodedUrnFull.split('?')[0];
 
             console.log('📋 Processing stamp:', {
                 id: stamp.id,
@@ -75,31 +88,32 @@ app.post('/api/issues/create', async (req, res) => {
                 linkedType: stamp.linkedDocumentType,
                 is3D: stamp.is3D,
                 viewId: stamp.viewId,
-                originalUrn: stamp.urn,
-                decodedUrnFull,
-                decodedUrnNoQuery
+                linkedDocumentUrn,
+                versionId,
+                createdAtVersion,
+                projectId: targetProjectId
             });
-
-            // ACC verlangt oft das dm.lineage Format
-            const lineageUrnNoQuery = decodedUrnNoQuery.replace(':fs.file:vf.', ':dm.lineage:').replace(':fs.file:v.', ':dm.lineage:');
-            const lineageUrnWithQuery = decodedUrnFull.replace(':fs.file:vf.', ':dm.lineage:').replace(':fs.file:v.', ':dm.lineage:');
 
             const requestedType = stamp.linkedDocumentType || "TwoDVectorPushpin";
             const is2D = requestedType === 'TwoDVectorPushpin';
-            const pushpinPos = stamp.accPosition || stamp.position || { x: 0, y: 0, z: 0 };
+            const pushpinPos = is2D
+                ? (stamp.accNormalizedPosition || stamp.accPosition || stamp.position || { x: 0, y: 0, z: 0 })
+                : (stamp.accPosition || stamp.position || { x: 0, y: 0, z: 0 });
             const viewName = (stamp.viewName && String(stamp.viewName).trim()) ? String(stamp.viewName) : 'ELIN Plan Prüfung';
 
-            // Position muss Integer-Werte haben für ACC API
-            const positionInt = {
-                x: Math.round(Number(pushpinPos.x) || 0),
-                y: Math.round(Number(pushpinPos.y) || 0),
-                z: Math.round(Number(pushpinPos.z) || 0)
+            // Keep exact float precision for ACC pushpins (especially 2D).
+            const positionPrecise = {
+                x: Number(pushpinPos.x) || 0,
+                y: Number(pushpinPos.y) || 0,
+                z: Number(pushpinPos.z) || 0
             };
+
+            const subtypeFromRequest = String(stamp.issueSubtypeId || '').trim();
 
             const basePayload = {
                 title: (stamp.title || 'ELIN Stempel').replace('Ã¼', 'ü'),
-                status: stamp.status,
-                issueSubtypeId: stamp.type === 'mangel' ? SUBTYPE_ID_MANGEL : SUBTYPE_ID_ALLGEMEIN,
+                status: (stamp.status && String(stamp.status).trim()) ? String(stamp.status).trim() : 'open',
+                ...(subtypeFromRequest ? { issueSubtypeId: subtypeFromRequest } : {}),
                 description: [
                     stamp.stampKey ? `StampKey: ${stamp.stampKey}` : null,
                     stamp.stampLabel ? `StampLabel: ${stamp.stampLabel}` : null,
@@ -109,7 +123,7 @@ app.post('/api/issues/create', async (req, res) => {
 
             const sendIssue = async (payload) => {
                 console.log('📤 Sending to ACC API:', JSON.stringify(payload, null, 2));
-                const response = await fetch(`https://developer.api.autodesk.com/construction/issues/v1/projects/${PROJECT_ID}/issues`, {
+                const response = await fetch(`https://developer.api.autodesk.com/construction/issues/v1/projects/${targetProjectId}/issues`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -143,8 +157,8 @@ app.post('/api/issues/create', async (req, res) => {
                 linkedDocuments: [
                     {
                         type: 'TwoDVectorPushpin',
-                        urn: lineageUrnNoQuery,
-                        createdAtVersion: stamp.version || 1,
+                        urn: linkedDocumentUrn,
+                        createdAtVersion,
                         details: {
                             viewable: {
                                 id: stamp.viewId,
@@ -152,8 +166,8 @@ app.post('/api/issues/create', async (req, res) => {
                                 is3D: false
                             },
                             position: {
-                                x: positionInt.x,
-                                y: positionInt.y
+                                x: positionPrecise.x,
+                                y: positionPrecise.y
                             }
                         }
                     }
@@ -165,15 +179,15 @@ app.post('/api/issues/create', async (req, res) => {
                 linkedDocuments: [
                     {
                         type: 'ThreeDVectorPushpin',
-                        urn: lineageUrnNoQuery,
-                        createdAtVersion: stamp.version || 1,
+                        urn: linkedDocumentUrn,
+                        createdAtVersion,
                         details: {
                             viewable: {
                                 id: stamp.viewId,
                                 name: viewName,
                                 is3D: true
                             },
-                            position: positionInt
+                            position: positionPrecise
                         }
                     }
                 ]
@@ -185,15 +199,15 @@ app.post('/api/issues/create', async (req, res) => {
                 linkedDocuments: [
                     {
                         type: 'TwoDVectorPushpin',
-                        urn: lineageUrnNoQuery,
-                        createdAtVersion: stamp.version || 1,
+                        urn: linkedDocumentUrn,
+                        createdAtVersion,
                         details: {
                             viewable: {
                                 id: stamp.viewId,
                                 name: viewName,
                                 is3D: true
                             },
-                            position: positionInt
+                            position: positionPrecise
                         }
                     }
                 ]
