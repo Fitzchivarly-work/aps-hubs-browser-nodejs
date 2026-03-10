@@ -49,6 +49,22 @@ SERVER_SESSION_SECRET="<secret-phrase>" # phrase used to encrypt/decrypt server 
 - Run the application, either from your code editor, or by running `npm start` in terminal
 - Open http://localhost:8080
 
+### ACC A/B Flags
+
+For controlled issue/pushpin A/B comparisons, you can add these optional flags to your `.env`:
+
+```bash
+USE_2D_VECTOR_PIN=false
+CLAMP_POS_DECIMALS=-1
+ENABLE_CONTAINER_MARKUP_POST=true
+```
+
+- `USE_2D_VECTOR_PIN`: `true` uses `TwoDVectorPushpin` for 2D; `false` uses `TwoDRasterPushpin`.
+- `CLAMP_POS_DECIMALS`: `-1` keeps full precision, `0..10` rounds x/y/z to that many decimals.
+- `ENABLE_CONTAINER_MARKUP_POST`: enables/disables the extra container-markup POST attempt.
+
+Runtime values are visible at `GET /api/debug/build` in the `flags` object.
+
 > When using [Visual Studio Code](https://code.visualstudio.com), you can run & debug
 > the application by pressing `F5`.
 

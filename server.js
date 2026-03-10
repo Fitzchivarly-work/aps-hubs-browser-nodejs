@@ -3,6 +3,54 @@ const session = require('cookie-session');
 const { PORT, SERVER_SESSION_SECRET } = require('./config.js');
 const SERVER_BUILD = '2026-03-04-2d-markup-stable';
 const ACC_MARKUPS_POST_URL = process.env.ACC_MARKUPS_POST_URL || '';
+const MARKUPS_UNAVAILABLE_CACHE = new Set();
+
+function parseBooleanFlag(value, fallback = false) {
+    if (value === undefined || value === null || String(value).trim() === '') return fallback;
+    const s = String(value).trim().toLowerCase();
+    if (['1', 'true', 'yes', 'on'].includes(s)) return true;
+    if (['0', 'false', 'no', 'off'].includes(s)) return false;
+    return fallback;
+}
+
+function parseClampDecimalsFlag(value, fallback = -1) {
+    if (value === undefined || value === null || String(value).trim() === '') return fallback;
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed)) return fallback;
+    if (parsed < -1) return -1;
+    return Math.min(parsed, 10);
+}
+
+const USE_2D_VECTOR_PIN = parseBooleanFlag(process.env.USE_2D_VECTOR_PIN, false);
+const CLAMP_POS_DECIMALS = parseClampDecimalsFlag(process.env.CLAMP_POS_DECIMALS, -1);
+const ENABLE_CONTAINER_MARKUP_POST = parseBooleanFlag(process.env.ENABLE_CONTAINER_MARKUP_POST, true);
+const ISSUE_2D_LINKED_DOC_TYPE = USE_2D_VECTOR_PIN ? 'TwoDVectorPushpin' : 'TwoDRasterPushpin';
+let RUNTIME_PREFERRED_2D_LINKED_DOC_TYPE = ISSUE_2D_LINKED_DOC_TYPE;
+
+function sanitizePosition(position) {
+    const asNumber = (value) => (Number.isFinite(Number(value)) ? Number(value) : 0);
+    const clamp = (n) => {
+        if (CLAMP_POS_DECIMALS < 0) return n;
+        return Number.parseFloat(Number(n).toFixed(CLAMP_POS_DECIMALS));
+    };
+
+    return {
+        x: clamp(asNumber(position && position.x)),
+        y: clamp(asNumber(position && position.y)),
+        z: clamp(asNumber(position && position.z))
+    };
+}
+
+console.log('⚙️ ACC flags:', {
+    USE_2D_VECTOR_PIN,
+    CLAMP_POS_DECIMALS,
+    ENABLE_CONTAINER_MARKUP_POST,
+    ISSUE_2D_LINKED_DOC_TYPE
+});
+
+function getAlt2DLinkedDocType(type) {
+    return type === 'TwoDVectorPushpin' ? 'TwoDRasterPushpin' : 'TwoDVectorPushpin';
+}
 
 function normalizeProjectId(projectId) {
     if (!projectId) return '';
@@ -357,6 +405,27 @@ async function getIssueById({ token, projectId, issueId }) {
     }
 }
 
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function getIssueByIdWithRetry({ token, projectId, issueId, retries = 6, delayMs = 600 }) {
+    let last = null;
+    for (let attempt = 1; attempt <= retries; attempt += 1) {
+        const lookup = await getIssueById({ token, projectId, issueId });
+        last = lookup;
+        if (lookup.exists) return { ...lookup, attempts: attempt };
+
+        const status = Number(lookup.status || 0);
+        const retryable = status === 404 || status === 429 || status >= 500;
+        if (!retryable || attempt === retries) {
+            return { ...lookup, attempts: attempt };
+        }
+        await sleep(delayMs);
+    }
+    return { ...(last || { exists: false }), attempts: retries };
+}
+
 async function createIssuePushpinFallback({ token, stamp, projectId }) {
     const normalizedProjectId = normalizeProjectId(projectId || stamp.projectId);
     if (!normalizedProjectId) {
@@ -374,14 +443,19 @@ async function createIssuePushpinFallback({ token, stamp, projectId }) {
         .replace(':fs.file:vf.', ':dm.lineage:')
         .replace(':fs.file:v.', ':dm.lineage:');
 
-    const position = stamp.accPosition || stamp.position || { x: 0, y: 0, z: 0 };
-    const positionInt = {
-        x: Math.round(Number(position.x) || 0),
-        y: Math.round(Number(position.y) || 0),
-        z: Math.round(Number(position.z) || 0)
-    };
+    const position = stamp.accNormalizedPosition || stamp.accPosition || stamp.position || { x: 0, y: 0, z: 0 };
+    const positionPrecise = sanitizePosition(position);
 
-    const createdAtVersion = extractVersionNumber(decodedUrnFull, stamp.version);
+    const createdAtVersion = (() => {
+        const explicit = Number(stamp.createdAtVersion);
+        if (Number.isInteger(explicit) && explicit > 0 && explicit < 1000) return explicit;
+        const fromVersionId = String(stamp.versionId || '').match(/[?&]version=(\d+)/i);
+        if (fromVersionId) {
+            const parsed = parseInt(fromVersionId[1], 10);
+            if (Number.isInteger(parsed) && parsed > 0 && parsed < 1000) return parsed;
+        }
+        return extractVersionNumber(decodedUrnFull, stamp.version);
+    })();
     const viewName = (stamp.viewName && String(stamp.viewName).trim()) ? String(stamp.viewName) : 'ELIN Plan Prüfung';
     const issuePayload = {
         title: stamp.title || `ELIN: ${stamp.stampKey || 'Stempel'}`,
@@ -395,7 +469,7 @@ async function createIssuePushpinFallback({ token, stamp, projectId }) {
         ].filter(Boolean).join(' | '),
         linkedDocuments: [
             {
-                type: 'TwoDVectorPushpin',
+                type: ISSUE_2D_LINKED_DOC_TYPE,
                 urn: lineageUrnNoQuery,
                 createdAtVersion,
                 details: {
@@ -405,8 +479,8 @@ async function createIssuePushpinFallback({ token, stamp, projectId }) {
                         is3D: false
                     },
                     position: {
-                        x: positionInt.x,
-                        y: positionInt.y
+                        x: positionPrecise.x,
+                        y: positionPrecise.y
                     }
                 }
             }
@@ -442,14 +516,20 @@ async function createIssuePushpinFallback({ token, stamp, projectId }) {
     // In that case metadata.issueId exists and we should not fail the whole request.
     if (parsed && parsed.errorCode === 'ISSUES_SERVICE_FAILED_TO_UPDATE_MARKUPS' && parsed.metadata && parsed.metadata.issueId) {
         const issueId = parsed.metadata.issueId;
-        const issueLookup = await getIssueById({ token, projectId: normalizedProjectId, issueId });
+        const issueLookup = await getIssueByIdWithRetry({
+            token,
+            projectId: normalizedProjectId,
+            issueId,
+            retries: 6,
+            delayMs: 600
+        });
 
         if (!issueLookup.exists) {
-            throw new Error(
-                `Issues-Fallback meldete issueId=${issueId}, aber das Issue ist nicht abrufbar `
-                + `(${issueLookup.status} ${issueLookup.statusText}). `
-                + `Die Anlage wurde vermutlich serverseitig verworfen.`
-            );
+            return {
+                ok: true,
+                issue: { id: issueId, displayId: issueId },
+                warning: `Issue von ACC gemeldet (issueId=${issueId}), aber nach ${issueLookup.attempts || 1} Lookup-Versuchen noch nicht abrufbar (${issueLookup.status || 'n/a'} ${issueLookup.statusText || ''}).`
+            };
         }
 
         const issue = issueLookup.issue || { id: issueId, displayId: issueId };
@@ -559,17 +639,67 @@ async function postMarkupToAcc({ token, versionUrn, svgString, title, projectId 
 
 async function postContainerMarkup({ token, projectId, stamp, issueId, issuesContainerId }) {
     const versionUrn = resolveVersionUrn(stamp);
-    const containerId = (stamp.containerId && String(stamp.containerId).trim())
-        || (stamp.issuesContainerId && String(stamp.issuesContainerId).trim())
-        || (issuesContainerId && String(issuesContainerId).trim())
-        || (stamp.itemId ? String(stamp.itemId).split(':').pop() : '');
+    const looksLikeContainerId = (value) => {
+        const v = String(value || '').trim();
+        return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+    };
+
+    const directIssuesContainerId = issuesContainerId && String(issuesContainerId).trim();
+    const stampIssuesContainerId = stamp.issuesContainerId && String(stamp.issuesContainerId).trim();
+    const stampContainerId = stamp.containerId && String(stamp.containerId).trim();
+    const itemDerivedContainerId = stamp.itemId ? String(stamp.itemId).split(':').pop() : '';
+
+    const containerId = directIssuesContainerId
+        || stampIssuesContainerId
+        || (looksLikeContainerId(stampContainerId) ? stampContainerId : '')
+        || (looksLikeContainerId(itemDerivedContainerId) ? itemDerivedContainerId : '');
     const svg = stamp.accMarkupSvg || '';
+    const markupCacheKey = `${normalizeProjectId(projectId)}::${containerId}`;
+
+    console.log('🧩 postContainerMarkup input:', {
+        issueId,
+        projectId,
+        resolvedVersionUrn: versionUrn,
+        resolvedContainerId: containerId,
+        sources: {
+            directIssuesContainerId,
+            stampIssuesContainerId,
+            stampContainerId,
+            itemDerivedContainerId
+        },
+        hasSvg: !!svg
+    });
 
     if (!versionUrn || !containerId || !svg) {
+        console.warn('⚠️ postContainerMarkup skipped:', {
+            reason: 'missing versionUrn/containerId/accMarkupSvg',
+            versionUrn,
+            containerId,
+            hasSvg: !!svg
+        });
         return { ok: false, skipped: true, reason: 'missing versionUrn/containerId/accMarkupSvg' };
     }
 
-    const endpoint = `https://developer.api.autodesk.com/construction/markups/v1/projects/${projectId}/containers/${encodeURIComponent(containerId)}/markups`;
+    if (MARKUPS_UNAVAILABLE_CACHE.has(markupCacheKey)) {
+        console.warn('⚠️ postContainerMarkup skipped (cached unavailable endpoint):', {
+            projectId: normalizeProjectId(projectId),
+            containerId
+        });
+        return {
+            ok: false,
+            skipped: true,
+            reason: 'markups endpoint unavailable for this container',
+            code: 'MARKUPS_ENDPOINT_NOT_AVAILABLE'
+        };
+    }
+
+    const endpointCandidates = [
+        // Primary endpoint from project relationships.markups.meta.link
+        `https://developer.api.autodesk.com/issues/v1/containers/${encodeURIComponent(containerId)}/markups`,
+        // Legacy/alternate endpoint kept as fallback.
+        `https://developer.api.autodesk.com/construction/markups/v1/projects/${projectId}/containers/${encodeURIComponent(containerId)}/markups`
+    ];
+
     const requestBodies = [
         {
             versionUrn,
@@ -593,34 +723,56 @@ async function postContainerMarkup({ token, projectId, stamp, issueId, issuesCon
             normalizedPosition: stamp.accNormalizedPosition || null,
             scale: Number(stamp.scale) || 1,
             viewId: stamp.viewId || null
+        },
+        // Some tenants expect `urn` instead of `versionUrn`.
+        {
+            urn: versionUrn,
+            issueId,
+            svg,
+            position: stamp.accPosition || stamp.accNormalizedPosition || { x: 0, y: 0, z: 0 },
+            normalizedPosition: stamp.accNormalizedPosition || null,
+            scale: Number(stamp.scale) || 1,
+            viewId: stamp.viewId || null
         }
     ];
 
     let lastError = null;
-    for (const body of requestBodies) {
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
-        });
+    for (const endpoint of endpointCandidates) {
+        for (const body of requestBodies) {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            });
 
-        const text = await response.text();
-        if (response.ok) {
-            let parsed = null;
-            try { parsed = JSON.parse(text); } catch (e) { parsed = { raw: text }; }
-            return { ok: true, endpoint, markup: parsed };
+            const text = await response.text();
+            if (response.ok) {
+                let parsed = null;
+                try { parsed = JSON.parse(text); } catch (e) { parsed = { raw: text }; }
+                return { ok: true, endpoint, markup: parsed };
+            }
+
+            let parsedError = null;
+            try { parsedError = JSON.parse(text); } catch (e) { parsedError = { message: text }; }
+            lastError = { endpoint, status: response.status, statusText: response.statusText, body: parsedError, sentBody: body };
+            console.warn('⚠️ postContainerMarkup attempt failed:', {
+                endpoint,
+                status: response.status,
+                statusText: response.statusText,
+                body: parsedError
+            });
+
+            if (response.status === 401 || response.status === 403) {
+                return { ok: false, error: lastError };
+            }
         }
+    }
 
-        let parsedError = null;
-        try { parsedError = JSON.parse(text); } catch (e) { parsedError = { message: text }; }
-        lastError = { endpoint, status: response.status, statusText: response.statusText, body: parsedError };
-
-        if (response.status === 401 || response.status === 403) {
-            return { ok: false, error: lastError };
-        }
+    if (lastError && Number(lastError.status) === 404) {
+        MARKUPS_UNAVAILABLE_CACHE.add(markupCacheKey);
     }
 
     return { ok: false, error: lastError };
@@ -634,7 +786,17 @@ app.use(express.json());
 app.use(require('./routes/auth.js'));
 app.use(require('./routes/hubs.js'));
 app.get('/api/debug/build', (req, res) => {
-    res.json({ build: SERVER_BUILD, port: PORT });
+    res.json({
+        build: SERVER_BUILD,
+        port: PORT,
+        flags: {
+            USE_2D_VECTOR_PIN,
+            CLAMP_POS_DECIMALS,
+            ENABLE_CONTAINER_MARKUP_POST,
+            ISSUE_2D_LINKED_DOC_TYPE,
+            RUNTIME_PREFERRED_2D_LINKED_DOC_TYPE
+        }
+    });
 });
 app.get('/api/debug/types', async (req, res) => {
     const token = req.session.internal_token;
@@ -856,7 +1018,7 @@ app.post('/api/issues/create', async (req, res) => {
                 linkedDocumentUrn
             });
 
-            const requestedType = stamp.linkedDocumentType || (stamp.is3D ? 'ThreeDVectorPushpin' : 'TwoDVectorPushpin');
+            const requestedType = stamp.linkedDocumentType || (stamp.is3D ? 'ThreeDVectorPushpin' : ISSUE_2D_LINKED_DOC_TYPE);
             const is3D = requestedType === 'ThreeDVectorPushpin' || !!stamp.is3D;
             const is2D = !is3D;
 
@@ -866,11 +1028,11 @@ app.post('/api/issues/create', async (req, res) => {
             const viewName = (stamp.viewName && String(stamp.viewName).trim()) ? String(stamp.viewName) : 'ELIN Plan Prüfung';
             const createdAtVersion = (() => {
                 const explicit = Number(stamp.createdAtVersion);
-                if (Number.isFinite(explicit) && explicit > 0) return Math.round(explicit);
+                if (Number.isInteger(explicit) && explicit > 0 && explicit < 1000) return explicit;
                 const match = String(versionIdRaw || '').match(/[?&]version=(\d+)/i);
                 if (match) {
                     const v = parseInt(match[1], 10);
-                    if (Number.isFinite(v) && v > 0) return v;
+                    if (Number.isInteger(v) && v > 0 && v < 1000) return v;
                 }
                 return 1;
             })();
@@ -880,11 +1042,7 @@ app.post('/api/issues/create', async (req, res) => {
             }
 
             // Keep precision from viewer coordinates.
-            const positionPrecise = {
-                x: Number.isFinite(Number(pushpinPos.x)) ? Number(pushpinPos.x) : 0,
-                y: Number.isFinite(Number(pushpinPos.y)) ? Number(pushpinPos.y) : 0,
-                z: Number.isFinite(Number(pushpinPos.z)) ? Number(pushpinPos.z) : 0
-            };
+            const positionPrecise = sanitizePosition(pushpinPos);
 
             const basePayload = {
                 title: (stamp.title || 'ELIN Stempel').replace('Ã¼', 'ü'),
@@ -930,11 +1088,37 @@ app.post('/api/issues/create', async (req, res) => {
                 return JSON.stringify(details);
             };
 
+            const active2DType = RUNTIME_PREFERRED_2D_LINKED_DOC_TYPE || ISSUE_2D_LINKED_DOC_TYPE;
+
             const payload2D = {
                 ...basePayload,
                 linkedDocuments: [
                     {
-                        type: 'TwoDVectorPushpin',
+                        type: active2DType,
+                        urn: linkedDocumentUrn,
+                        createdAtVersion,
+                        details: {
+                            viewable: {
+                                id: stamp.viewId,
+                                name: viewName,
+                                is3D: false
+                            },
+                            position: {
+                                x: positionPrecise.x,
+                                y: positionPrecise.y
+                            }
+                        }
+                    }
+                ]
+            };
+
+            const ALT_2D_LINKED_DOC_TYPE = getAlt2DLinkedDocType(active2DType);
+
+            const payload2DAlternateType = {
+                ...basePayload,
+                linkedDocuments: [
+                    {
+                        type: ALT_2D_LINKED_DOC_TYPE,
                         urn: linkedDocumentUrn,
                         createdAtVersion,
                         details: {
@@ -1005,6 +1189,14 @@ app.post('/api/issues/create', async (req, res) => {
                         requestPayload: payload2D,
                         issuesContainerId
                     });
+
+                    const e2d = result.parsedError || {};
+                    const markupFailed = e2d.errorCode === 'ISSUES_SERVICE_FAILED_TO_UPDATE_MARKUPS';
+                    const canRetryType = Number(result.response.status) === 400 || markupFailed;
+                    if (canRetryType) {
+                        console.warn(`⚠️ 2D Retry mit alternativem linkedDocuments.type=${ALT_2D_LINKED_DOC_TYPE}`);
+                        result = await sendIssue(payload2DAlternateType);
+                    }
                 }
 
             } else {
@@ -1031,20 +1223,38 @@ app.post('/api/issues/create', async (req, res) => {
 
             if (result.response.ok) {
                 const accIssue = result.parsedBody || JSON.parse(result.responseText);
-                const markupResult = await postContainerMarkup({
-                    token,
-                    projectId: targetProjectId,
-                    stamp,
-                    issuesContainerId,
-                    issueId: accIssue.id || accIssue.displayId
-                });
 
-                if (markupResult.ok) {
-                    accIssue.markup = markupResult.markup;
-                } else if (!markupResult.skipped) {
-                    accIssue.warning = 'Issue erstellt, aber SVG-Markup konnte nicht geschrieben werden.';
-                    accIssue.markupError = markupResult.error;
-                    console.warn('⚠️ Markup POST fehlgeschlagen:', JSON.stringify(markupResult.error));
+                if (is2D && result.requestPayload && Array.isArray(result.requestPayload.linkedDocuments)) {
+                    const usedType = result.requestPayload.linkedDocuments[0] && result.requestPayload.linkedDocuments[0].type;
+                    if (usedType && usedType !== RUNTIME_PREFERRED_2D_LINKED_DOC_TYPE) {
+                        RUNTIME_PREFERRED_2D_LINKED_DOC_TYPE = usedType;
+                        console.log('✅ Runtime 2D type learned:', { RUNTIME_PREFERRED_2D_LINKED_DOC_TYPE });
+                    }
+                }
+
+                if (ENABLE_CONTAINER_MARKUP_POST) {
+                    const markupResult = await postContainerMarkup({
+                        token,
+                        projectId: targetProjectId,
+                        stamp,
+                        issuesContainerId,
+                        issueId: accIssue.id || accIssue.displayId
+                    });
+
+                    if (markupResult.ok) {
+                        accIssue.markup = markupResult.markup;
+                    } else if (!markupResult.skipped) {
+                        accIssue.warning = 'Issue erstellt, aber SVG-Markup konnte nicht geschrieben werden.';
+                        accIssue.markupError = markupResult.error;
+                        if (markupResult.error && markupResult.error.status === 404) {
+                            accIssue.markupWarningCode = 'MARKUPS_ENDPOINT_NOT_AVAILABLE';
+                            accIssue.markupWarningHint = 'In diesem ACC-Tenant ist der Markups-Endpoint fuer Container nicht verfuegbar (404). Der Issue-Pushpin bleibt, aber das benutzerdefinierte SVG-Stamping wird nicht angezeigt.';
+                        }
+                        console.warn('⚠️ Markup POST fehlgeschlagen:', JSON.stringify(markupResult.error));
+                    }
+                } else {
+                    accIssue.markupSkipped = true;
+                    accIssue.markupSkipReason = 'ENABLE_CONTAINER_MARKUP_POST=false';
                 }
 
                 createdIssues.push(accIssue);
@@ -1079,45 +1289,33 @@ app.post('/api/issues/create', async (req, res) => {
                 const issueId = String(result.parsedError.metadata.issueId).trim();
                 console.warn('⚠️ ACC hat ein Issue erzeugt, aber Pushpin/Annotation konnte nicht gespeichert werden. Lade Issue per issueId nach.', {
                     issueId,
-                    targetProjectId
+                    targetProjectId,
+                    is2D,
+                    is3D
                 });
 
-                // Sichtbarkeits-Fallback: explizit ein reines Issue ohne linkedDocuments erzeugen,
-                // damit die Aufgabe in ACC-Listen sicher erscheint.
-                const plainIssuePayload = { ...basePayload };
-                const plainIssueResult = await sendIssueProject(plainIssuePayload);
-                if (plainIssueResult.response.ok) {
-                    const plainIssue = plainIssueResult.parsedBody || JSON.parse(plainIssueResult.responseText);
-                    createdIssues.push({
-                        ...plainIssue,
-                        warning: 'Issue erstellt ohne 2D-Pushpin, da ACC das Annotation-Markup abgelehnt hat.'
-                    });
-                    console.warn('⚠️ Fallback erfolgreich: Issue ohne linkedDocuments erstellt.', {
-                        displayId: plainIssue.displayId || null,
-                        id: plainIssue.id || null
-                    });
-                    continue;
-                }
-
-                console.warn('⚠️ Fallback-Issue ohne linkedDocuments fehlgeschlagen, versuche Issue-Lookup per metadata.issueId.', {
-                    status: plainIssueResult.response.status,
-                    statusText: plainIssueResult.response.statusText,
-                    autodeskError: plainIssueResult.parsedError || plainIssueResult.responseText
+                const lookup = await getIssueByIdWithRetry({
+                    token,
+                    projectId: targetProjectId,
+                    issueId,
+                    retries: 6,
+                    delayMs: 600
                 });
-
-                const lookup = await getIssueById({ token, projectId: targetProjectId, issueId });
                 if (lookup.exists) {
                     const verifiedIssue = lookup.issue || { id: issueId, displayId: issueId };
                     createdIssues.push({
                         ...verifiedIssue,
-                        warning: 'Issue erstellt, aber ACC konnte den 2D-Pushpin (Markup) nicht speichern.'
+                        warning: is2D
+                            ? 'Issue erstellt, aber ACC konnte den 2D-Pushpin/Annotation nicht speichern.'
+                            : 'Issue erstellt, aber ACC konnte den 3D-Pushpin/Annotation nicht speichern.'
                     });
                     continue;
                 }
 
-                // Some tenants return issueId in metadata but immediate GET can be eventually-consistent (404).
-                console.warn('⚠️ Issue-Lookup direkt nach Markup-Fehler nicht verfuegbar, liefere synthetic success mit warning.', {
+                // Some tenants are eventually consistent and return 404 for fresh issueId for a short period.
+                console.warn('⚠️ Issue-Lookup nach mehreren Retries nicht verfuegbar, liefere synthetic success mit warning.', {
                     issueId,
+                    attempts: lookup.attempts || 1,
                     lookupStatus: lookup.status || null,
                     lookupStatusText: lookup.statusText || null,
                     lookupRaw: lookup.raw || null
@@ -1126,8 +1324,11 @@ app.post('/api/issues/create', async (req, res) => {
                 createdIssues.push({
                     id: issueId,
                     displayId: issueId,
-                    warning: 'Issue wurde von ACC gemeldet, aber ist noch nicht abrufbar; 2D-Pushpin/Markup wurde nicht gespeichert.',
+                    warning: is2D
+                        ? 'Issue wurde von ACC gemeldet, ist aber noch nicht abrufbar; 2D-Pushpin/Annotation konnte nicht gespeichert werden.'
+                        : 'Issue wurde von ACC gemeldet, ist aber noch nicht abrufbar; 3D-Pushpin/Annotation konnte nicht gespeichert werden.',
                     lookup: {
+                        attempts: lookup.attempts || 1,
                         status: lookup.status || null,
                         statusText: lookup.statusText || null
                     }

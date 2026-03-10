@@ -16,6 +16,8 @@
 (function () {
   'use strict';
 
+  const USE_2D_VECTOR_PIN = !!(window.ELIN_FLAGS && window.ELIN_FLAGS.USE_2D_VECTOR_PIN);
+
   // ----------------------------- Small utilities -----------------------------
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
@@ -192,6 +194,7 @@
       this._defaultIssueType = 'allgemein';
       this._issueSubtypeOptions = [];
       this._defaultIssueSubtypeId = null;
+      this._lastCompleteTreeCtx = null;
       this._pickerPanel = null;
       this._propsPanel = null;
       this._launcherBtn = null;
@@ -1356,11 +1359,55 @@
         modelType: model.constructor.name
       });
 
-      const ctx = (window.ELIN_TREE_CTX && typeof window.ELIN_TREE_CTX === 'object') ? window.ELIN_TREE_CTX : {};
-      const selectedHubId = ctx.hubId ? String(ctx.hubId).trim() : '';
-      const selectedProjectId = ctx.projectId ? String(ctx.projectId).trim() : '';
-      const ctxItemId = ctx.itemId ? String(ctx.itemId).trim() : '';
-      const ctxVersionId = ctx.versionId ? String(ctx.versionId).trim() : '';
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      const normalizeCtx = (raw) => {
+        const c = (raw && typeof raw === 'object') ? raw : {};
+        return {
+          hubId: c.hubId ? String(c.hubId).trim() : '',
+          projectId: c.projectId ? String(c.projectId).trim() : '',
+          itemId: c.itemId ? String(c.itemId).trim() : '',
+          versionId: c.versionId ? String(c.versionId).trim() : ''
+        };
+      };
+
+      let mergedCtx = normalizeCtx(window.ELIN_TREE_CTX);
+      const isCtxComplete = (c) => !!(c.hubId && c.projectId && c.itemId && c.versionId);
+
+      if (!isCtxComplete(mergedCtx) && this._lastCompleteTreeCtx) {
+        mergedCtx = {
+          hubId: mergedCtx.hubId || this._lastCompleteTreeCtx.hubId,
+          projectId: mergedCtx.projectId || this._lastCompleteTreeCtx.projectId,
+          itemId: mergedCtx.itemId || this._lastCompleteTreeCtx.itemId,
+          versionId: mergedCtx.versionId || this._lastCompleteTreeCtx.versionId
+        };
+      }
+
+      if (!isCtxComplete(mergedCtx)) {
+        // Sidebar updates hub/project/item/version in separate UI events; wait briefly for completion.
+        for (let i = 0; i < 6; i += 1) {
+          await sleep(120);
+          let latest = normalizeCtx(window.ELIN_TREE_CTX);
+          if (!isCtxComplete(latest) && this._lastCompleteTreeCtx) {
+            latest = {
+              hubId: latest.hubId || this._lastCompleteTreeCtx.hubId,
+              projectId: latest.projectId || this._lastCompleteTreeCtx.projectId,
+              itemId: latest.itemId || this._lastCompleteTreeCtx.itemId,
+              versionId: latest.versionId || this._lastCompleteTreeCtx.versionId
+            };
+          }
+          mergedCtx = latest;
+          if (isCtxComplete(mergedCtx)) break;
+        }
+      }
+
+      if (isCtxComplete(mergedCtx)) {
+        this._lastCompleteTreeCtx = { ...mergedCtx };
+      }
+
+      const selectedHubId = mergedCtx.hubId;
+      const selectedProjectId = mergedCtx.projectId;
+      const ctxItemId = mergedCtx.itemId;
+      const ctxVersionId = mergedCtx.versionId;
 
       const docNode = model.getDocumentNode && model.getDocumentNode();
       const viewableId = (docNode && docNode.data && docNode.data.guid) ? String(docNode.data.guid).trim() : '';
@@ -1478,7 +1525,9 @@
           });
         }
         
-        const linkedType = is2D ? 'TwoDVectorPushpin' : 'ThreeDVectorPushpin';
+        const linkedType = is2D
+          ? (USE_2D_VECTOR_PIN ? 'TwoDVectorPushpin' : 'TwoDRasterPushpin')
+          : 'ThreeDVectorPushpin';
         console.log(`[ELIN] Stamp ${s.id}: linkedDocumentType = ${linkedType}, accPosition =`, accPosition);
 
         return {
@@ -1513,10 +1562,11 @@
           projectId: selectedProjectId,
           hubId: selectedHubId,
           versionId: ctxVersionId,
+          versionUrn: ctxVersionId,
           version: versionNum,
           createdAtVersion: versionNum,
           itemId: ctxItemId,
-          containerId: ctxItemId.split(':').pop() || null,
+          containerId: null,
           linkedDocumentUrn: linkedDocumentUrnFromCtx,
 
           // SVG-Fragment + viewBox fuer Markups API POST.
