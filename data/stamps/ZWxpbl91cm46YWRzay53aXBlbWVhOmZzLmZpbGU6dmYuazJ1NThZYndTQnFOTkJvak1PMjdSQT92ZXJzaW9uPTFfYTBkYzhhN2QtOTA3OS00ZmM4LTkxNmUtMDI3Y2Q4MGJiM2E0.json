@@ -1,0 +1,132 @@
+{
+  "key": "elin_urn:adsk.wipemea:fs.file:vf.k2u58YbwSBqNNBojMO27RA?version=1_a0dc8a7d-9079-4fc8-916e-027cd80bb3a4",
+  "updatedAt": "2026-03-10T12:39:40.481Z",
+  "stamps": [
+    {
+      "id": "stamp-mmkj5hhb-f2299998f3cca8",
+      "stampKey": "ELIN_ALG_ENERGIESAEULE",
+      "worldPos": {
+        "x": 0.4511329322596142,
+        "y": 0.6839939821625404,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.4511329322596142,
+        "y": 0.6839939821625404,
+        "z": 0
+      },
+      "scale": 1,
+      "issueType": "allgemein",
+      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
+      "referenceZoom": 1428.837150335312
+    },
+    {
+      "id": "stamp-mmkj5i15-938f8975257cd",
+      "stampKey": "ELIN_ALG_ENERGIESAEULE",
+      "worldPos": {
+        "x": 0.4377252790801529,
+        "y": 0.8688784685691018,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.4377252790801529,
+        "y": 0.8688784685691018,
+        "z": 0
+      },
+      "scale": 1,
+      "issueType": "allgemein",
+      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
+      "referenceZoom": 1428.837150335312
+    },
+    {
+      "id": "stamp-mmkj5iaw-38a87ac8ff3f6",
+      "stampKey": "ELIN_ALG_ENERGIESAEULE",
+      "worldPos": {
+        "x": 0.45042726630280044,
+        "y": 0.8215988479994849,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.45042726630280044,
+        "y": 0.8215988479994849,
+        "z": 0
+      },
+      "scale": 1,
+      "issueType": "allgemein",
+      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
+      "referenceZoom": 1428.837150335312
+    },
+    {
+      "id": "stamp-mmkj5ir5-2bd663147abe8",
+      "stampKey": "ELIN_ALG_ENERGIESAEULE",
+      "worldPos": {
+        "x": 0.4024419812394652,
+        "y": 0.7863155490669349,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.4024419812394652,
+        "y": 0.7863155490669349,
+        "z": 0
+      },
+      "scale": 1,
+      "issueType": "allgemein",
+      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
+      "referenceZoom": 1428.837150335312
+    },
+    {
+      "id": "stamp-mmkj5izo-e2f0321f7c4528",
+      "stampKey": "ELIN_ALG_ENERGIESAEULE",
+      "worldPos": {
+        "x": 0.33822637916941356,
+        "y": 0.8357121675725049,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.33822637916941356,
+        "y": 0.8357121675725049,
+        "z": 0
+      },
+      "scale": 1,
+      "issueType": "allgemein",
+      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
+      "referenceZoom": 1428.837150335312
+    },
+    {
+      "id": "stamp-mmkkduso-0610db7cdf45f8",
+      "stampKey": "ELIN_BMA_Loopsirene mit Blitzleuchte",
+      "worldPos": {
+        "x": 0.33400647842922676,
+        "y": 0.5770060763957674,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.33400647842922676,
+        "y": 0.5770060763957674,
+        "z": 0
+      },
+      "scale": 0.25,
+      "issueType": "allgemein",
+      "issueSubtypeId": "a46d8a57-7079-5e41-a988-4e71c327eba7",
+      "referenceZoom": 1545.0100178718567
+    },
+    {
+      "id": "stamp-mmkkr7bp-a4c42f6c0eb458",
+      "stampKey": "ELIN_STS_STECKDOSE_1F_USB",
+      "worldPos": {
+        "x": 0.31859644166209944,
+        "y": 0.5788663374700893,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.31859644166209944,
+        "y": 0.5788663374700893,
+        "z": 0
+      },
+      "scale": 2,
+      "issueType": "allgemein",
+      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
+      "referenceZoom": 8192.00001811981
+    }
+  ]
+}

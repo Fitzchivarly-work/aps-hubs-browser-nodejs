@@ -1,9 +1,23 @@
 const express = require('express');
 const session = require('cookie-session');
+const fs = require('fs');
+const path = require('path');
 const { PORT, SERVER_SESSION_SECRET } = require('./config.js');
 const SERVER_BUILD = '2026-03-04-2d-markup-stable';
 const ACC_MARKUPS_POST_URL = process.env.ACC_MARKUPS_POST_URL || '';
 const MARKUPS_UNAVAILABLE_CACHE = new Set();
+const STAMPS_DATA_DIR = path.join(__dirname, 'data', 'stamps');
+
+function storageKeyToFileName(key) {
+    const normalized = String(key || '').trim();
+    if (!normalized) return '';
+    const encoded = Buffer.from(normalized, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    return `${encoded}.json`;
+}
+
+async function ensureStampsDataDir() {
+    await fs.promises.mkdir(STAMPS_DATA_DIR, { recursive: true });
+}
 
 function parseBooleanFlag(value, fallback = false) {
     if (value === undefined || value === null || String(value).trim() === '') return fallback;
@@ -785,6 +799,56 @@ app.use(express.json());
 
 app.use(require('./routes/auth.js'));
 app.use(require('./routes/hubs.js'));
+
+app.post('/api/stamps/save', async (req, res) => {
+    try {
+        const key = String(req.body && req.body.key ? req.body.key : '').trim();
+        const stamps = req.body && (req.body.stamps || req.body.payload);
+        if (!key) return res.status(400).json({ success: false, message: 'key fehlt.' });
+        if (!Array.isArray(stamps)) return res.status(400).json({ success: false, message: 'stamps muss ein Array sein.' });
+
+        const fileName = storageKeyToFileName(key);
+        if (!fileName) return res.status(400).json({ success: false, message: 'ungueltiger key.' });
+
+        await ensureStampsDataDir();
+        const filePath = path.join(STAMPS_DATA_DIR, fileName);
+        const payload = {
+            key,
+            updatedAt: new Date().toISOString(),
+            stamps
+        };
+        await fs.promises.writeFile(filePath, JSON.stringify(payload, null, 2), 'utf8');
+
+        res.json({ success: true, key, count: stamps.length });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+app.get('/api/stamps/load', async (req, res) => {
+    try {
+        const key = String(req.query && req.query.key ? req.query.key : '').trim();
+        if (!key) return res.status(400).json({ success: false, message: 'key fehlt.' });
+
+        const fileName = storageKeyToFileName(key);
+        if (!fileName) return res.status(400).json({ success: false, message: 'ungueltiger key.' });
+
+        await ensureStampsDataDir();
+        const filePath = path.join(STAMPS_DATA_DIR, fileName);
+
+        if (!fs.existsSync(filePath)) {
+            return res.json({ success: true, key, stamps: [] });
+        }
+
+        const raw = await fs.promises.readFile(filePath, 'utf8');
+        const parsed = JSON.parse(raw);
+        const stamps = Array.isArray(parsed && parsed.stamps) ? parsed.stamps : [];
+        res.json({ success: true, key, stamps });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 app.get('/api/debug/build', (req, res) => {
     res.json({
         build: SERVER_BUILD,

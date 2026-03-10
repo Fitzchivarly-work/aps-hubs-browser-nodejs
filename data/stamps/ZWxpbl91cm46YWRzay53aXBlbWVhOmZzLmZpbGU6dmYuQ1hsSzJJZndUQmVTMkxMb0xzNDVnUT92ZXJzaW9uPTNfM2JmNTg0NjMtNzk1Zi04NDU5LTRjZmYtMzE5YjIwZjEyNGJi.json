@@ -1,0 +1,96 @@
+{
+  "key": "elin_urn:adsk.wipemea:fs.file:vf.CXlK2IfwTBeS2LLoLs45gQ?version=3_3bf58463-795f-8459-4cff-319b20f124bb",
+  "updatedAt": "2026-03-10T12:41:13.459Z",
+  "stamps": [
+    {
+      "id": "stamp-mmkllrz7-662f46321888a8",
+      "stampKey": "_Oblique",
+      "worldPos": {
+        "x": -182.0942243537895,
+        "y": 0.39615786744289494,
+        "z": 39.452098846435575
+      },
+      "dbWorld": {
+        "x": -182.0942243537895,
+        "y": 0.39615786744289494,
+        "z": 39.452098846435575
+      },
+      "scale": 1,
+      "issueType": "allgemein",
+      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
+      "referenceZoom": 1.350448505895929
+    },
+    {
+      "id": "stamp-mmkllse9-e8b38d322ce058",
+      "stampKey": "_Oblique",
+      "worldPos": {
+        "x": -107.41661126245819,
+        "y": 6.948263367618864,
+        "z": 39.45209884643552
+      },
+      "dbWorld": {
+        "x": -107.41661126245819,
+        "y": 6.948263367618864,
+        "z": 39.45209884643552
+      },
+      "scale": 1,
+      "issueType": "allgemein",
+      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
+      "referenceZoom": 1.350448505895929
+    },
+    {
+      "id": "stamp-mmkllsob-35df3c39ba72f8",
+      "stampKey": "_Oblique",
+      "worldPos": {
+        "x": -26.64732021595782,
+        "y": -1.14180448141812,
+        "z": 39.45209884643555
+      },
+      "dbWorld": {
+        "x": -26.64732021595782,
+        "y": -1.14180448141812,
+        "z": 39.45209884643555
+      },
+      "scale": 1,
+      "issueType": "allgemein",
+      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
+      "referenceZoom": 1.350448505895929
+    },
+    {
+      "id": "stamp-mmkllsya-93a3d68d1381e",
+      "stampKey": "_Oblique",
+      "worldPos": {
+        "x": 87.60593094469687,
+        "y": 9.442196040107461,
+        "z": 39.45209884643555
+      },
+      "dbWorld": {
+        "x": 87.60593094469687,
+        "y": 9.442196040107461,
+        "z": 39.45209884643555
+      },
+      "scale": 1,
+      "issueType": "allgemein",
+      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
+      "referenceZoom": 1.350448505895929
+    },
+    {
+      "id": "stamp-mmklltei-b7d98dac36f578",
+      "stampKey": "_Oblique",
+      "worldPos": {
+        "x": 186.1553192877068,
+        "y": 5.803322050937183,
+        "z": 39.45209884643555
+      },
+      "dbWorld": {
+        "x": 186.1553192877068,
+        "y": 5.803322050937183,
+        "z": 39.45209884643555
+      },
+      "scale": 1,
+      "issueType": "allgemein",
+      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
+      "referenceZoom": 1.350448505895929
+    }
+  ]
+}

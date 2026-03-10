@@ -43,6 +43,33 @@
     return p && Number.isFinite(p.x) && Number.isFinite(p.y);
   }
 
+  function tryDecodeBase64ToText(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    try {
+      const normalized = raw.replace(/-/g, '+').replace(/_/g, '/');
+      const pad = normalized.length % 4;
+      const padded = pad ? (normalized + '='.repeat(4 - pad)) : normalized;
+      return atob(padded);
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function normalizeStorageUrn(rawUrn) {
+    const raw = String(rawUrn || '').trim();
+    if (!raw) return 'unknownUrn';
+
+    let decodedUrl = raw;
+    try { decodedUrl = decodeURIComponent(raw); } catch (e) { /* ignore */ }
+    if (/^urn:adsk\./i.test(decodedUrl)) return decodedUrl;
+
+    const b64Decoded = tryDecodeBase64ToText(decodedUrl);
+    if (/^urn:adsk\./i.test(b64Decoded)) return b64Decoded;
+
+    return decodedUrl;
+  }
+
   // ----------------------------- Stamp definition loader -----------------------------
   class StampLibrary {
     constructor(url) {
@@ -212,7 +239,11 @@
 
       // Bound handlers
       this._onCameraChange = () => this._updateAllStamps();
-      this._onModelLoaded = () => this._onModelRootLoaded();
+      this._onModelLoaded = () => {
+        this._onModelRootLoaded().catch((e) => {
+          console.warn('[ELIN] Model load sync failed:', e);
+        });
+      };
       this._onKeyDownBound = (ev) => this._handleKeyDown(ev);
       this._onContainerPointerDownCaptureBound = (ev) => this._handleContainerPointerDownCapture(ev);
       this._onContainerPointerUpCaptureBound = () => {
@@ -255,7 +286,9 @@
 
       // Initialisiere model-abhaengige Daten erst, wenn das Model wirklich da ist.
       if (this.viewer.model) {
-        this._onModelRootLoaded();
+        this._onModelRootLoaded().catch((e) => {
+          console.warn('[ELIN] Initial model sync failed:', e);
+        });
       }
 
       return true;
@@ -696,7 +729,7 @@
         if (!v) return;
         this._defaultIssueSubtypeId = v;
         for (const s of this._selected) s.issueSubtypeId = v;
-        this._saveStampsToLocal();
+        this._saveStampsToServer();
       });
 
       const scaleRange = panel.querySelector('[data-role="scale"]');
@@ -706,7 +739,7 @@
           s.scale = v;
           this._updateStampDom(s);
         }
-        this._saveStampsToLocal();
+        this._saveStampsToServer();
       });
 
       this.viewer.container.appendChild(panel);
@@ -739,10 +772,10 @@
     }
 
     // ----------------------------- Model/view lifecycle -----------------------------
-    _onModelRootLoaded() {
+    async _onModelRootLoaded() {
       this._clearAllStampsDom();
       this._clearSelection();
-      this._loadStampsFromLocal();
+      await this._loadStampsFromServer();
       this._loadIssueSubtypeOptions();
       this._updateAllStamps();
       this._ensureLibraryLoaded();
@@ -904,7 +937,7 @@
       }
     }
 
-    _currentStorageKey() {
+    _currentStorageKey(useNormalized = true) {
       const model = this.viewer.model;
       if (!model) return null;
 
@@ -919,18 +952,16 @@
       if (!urn && model.loader && model.loader.svfUrn) {
         urn = model.loader.svfUrn;
       }
-      if (!urn) {
-        urn = 'unknownUrn';
-      }
+      urn = useNormalized ? normalizeStorageUrn(urn || 'unknownUrn') : String(urn || 'unknownUrn');
 
       const docNode = model.getDocumentNode && model.getDocumentNode();
       const guid = (docNode && docNode.data && docNode.data.guid) ? docNode.data.guid : 'unknownView';
       return `elin_${urn}_${guid}`;
     }
 
-    _saveStampsToLocal() {
+    async _saveStampsToServer() {
       const key = this._currentStorageKey();
-      if (!key) return;
+        if (!key) return; // Ensure we have a valid key before proceeding
 
       const payload = this._stamps.map((s) => ({
         id: s.id,
@@ -943,18 +974,63 @@
         referenceZoom: s.referenceZoom || 1  // Für absolute Skalierung
       }));
 
-      localStorage.setItem(key, JSON.stringify(payload));
+      try {
+        const res = await fetch('/api/stamps/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key, stamps: payload })
+        });
+        if (!res.ok) {
+          const txt = await res.text();
+          console.warn('ELIN: Could not save stamps to server', res.status, txt);
+        }
+      } catch (e) {
+        console.warn('ELIN: Could not save stamps to server', e);
+      }
     }
 
-    _loadStampsFromLocal() {
-      const key = this._currentStorageKey();
-      if (!key) return;
+    async _loadStampsFromServer() {
+      let normalizedKey = this._currentStorageKey(true);
+      let legacyKey = this._currentStorageKey(false);
 
-      const raw = localStorage.getItem(key);
-      if (!raw) return;
+      // On some model lifecycle timings, URN/guid arrive slightly after MODEL_ROOT_LOADED.
+      for (let i = 0; i < 8; i += 1) {
+        const invalidNormalized = !normalizedKey || normalizedKey.includes('unknownView') || normalizedKey.includes('unknownUrn');
+        const invalidLegacy = !legacyKey || legacyKey.includes('unknownView') || legacyKey.includes('unknownUrn');
+        if (!invalidNormalized || !invalidLegacy) break;
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        normalizedKey = this._currentStorageKey(true);
+        legacyKey = this._currentStorageKey(false);
+      }
+
+      const keyCandidates = Array.from(new Set([normalizedKey, legacyKey].filter(Boolean)));
+      if (keyCandidates.length === 0) return;
 
       try {
-        const arr = JSON.parse(raw);
+        let arr = [];
+        for (const key of keyCandidates) {
+          const res = await fetch(`/api/stamps/load?key=${encodeURIComponent(key)}`, { cache: 'no-store' });
+          if (!res.ok) {
+            const txt = await res.text();
+            console.warn('ELIN: Could not load stamps from server', res.status, txt, { key });
+            continue;
+          }
+
+          const out = await res.json();
+          arr = out && Array.isArray(out.stamps) ? out.stamps : [];
+          if (arr.length > 0) {
+            // Migrate legacy key to normalized key in-place for future loads.
+            if (key !== normalizedKey && normalizedKey) {
+              await fetch('/api/stamps/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: normalizedKey, stamps: arr })
+              });
+            }
+            break;
+          }
+        }
+
         if (!Array.isArray(arr)) return;
 
         for (const d of arr) {
@@ -971,7 +1047,7 @@
           }, false);
         }
       } catch (e) {
-        console.warn('ELIN: Could not parse saved stamps', e);
+        console.warn('ELIN: Could not load/parse saved stamps from server', e);
       }
     }
 
@@ -1113,7 +1189,7 @@
 
       this._updateStampDom(stamp);
 
-      if (save) this._saveStampsToLocal();
+      if (save) this._saveStampsToServer();
       return stamp;
     }
 
@@ -1267,7 +1343,7 @@
     _onStampPointerUp() {
       if (!this._dragState) return;
       this._dragState = null;
-      this._saveStampsToLocal();
+      this._saveStampsToServer();
     }
 
     _updateStampDom(stamp) {
@@ -1340,7 +1416,7 @@
       });
 
       this._clearSelection();
-      this._saveStampsToLocal();
+      this._saveStampsToServer();
     }
 
     // ----------------------------- ACC sync -----------------------------

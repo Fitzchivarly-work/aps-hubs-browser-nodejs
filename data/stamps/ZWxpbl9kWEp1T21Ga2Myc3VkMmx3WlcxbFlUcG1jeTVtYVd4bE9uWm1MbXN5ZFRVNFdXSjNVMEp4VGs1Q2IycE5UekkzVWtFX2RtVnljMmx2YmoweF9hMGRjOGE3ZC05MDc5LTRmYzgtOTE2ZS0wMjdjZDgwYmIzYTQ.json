@@ -1,0 +1,186 @@
+{
+  "key": "elin_dXJuOmFkc2sud2lwZW1lYTpmcy5maWxlOnZmLmsydTU4WWJ3U0JxTk5Cb2pNTzI3UkE_dmVyc2lvbj0x_a0dc8a7d-9079-4fc8-916e-027cd80bb3a4",
+  "updatedAt": "2026-03-10T11:32:09.156Z",
+  "stamps": [
+    {
+      "id": "stamp-mmkj5elt-d9b2c08a501208",
+      "stampKey": "_Oblique",
+      "worldPos": {
+        "x": 0.28869628267628805,
+        "y": 0.6735602256673765,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.28869628267628805,
+        "y": 0.6735602256673765,
+        "z": 0
+      },
+      "scale": 1,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 1428.837150335312
+    },
+    {
+      "id": "stamp-mmkj5ewe-b5086419c00fb8",
+      "stampKey": "_Oblique",
+      "worldPos": {
+        "x": 0.42237142372699016,
+        "y": 0.7141526752202838,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.42237142372699016,
+        "y": 0.7141526752202838,
+        "z": 0
+      },
+      "scale": 1,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 1428.837150335312
+    },
+    {
+      "id": "stamp-mmkj5f6g-391716bc7f1458",
+      "stampKey": "_Oblique",
+      "worldPos": {
+        "x": 0.4237711634238561,
+        "y": 0.833130544599495,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.4237711634238561,
+        "y": 0.833130544599495,
+        "z": 0
+      },
+      "scale": 1,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 1428.837150335312
+    },
+    {
+      "id": "stamp-mmkj5fe2-57c2e59857f2",
+      "stampKey": "_Oblique",
+      "worldPos": {
+        "x": 0.16271970995834895,
+        "y": 0.8611253373946034,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.16271970995834895,
+        "y": 0.8611253373946034,
+        "z": 0
+      },
+      "scale": 1,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 1428.837150335312
+    },
+    {
+      "id": "stamp-mmkj5hhb-f2299998f3cca8",
+      "stampKey": "ELIN_ALG_ENERGIESAEULE",
+      "worldPos": {
+        "x": 0.299194330402783,
+        "y": 0.7169521544997948,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.299194330402783,
+        "y": 0.7169521544997948,
+        "z": 0
+      },
+      "scale": 1,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 1428.837150335312
+    },
+    {
+      "id": "stamp-mmkj5hsr-bf66602dffd52",
+      "stampKey": "ELIN_ALG_ENERGIESAEULE",
+      "worldPos": {
+        "x": 0.34258626100562867,
+        "y": 0.8009365328851202,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.34258626100562867,
+        "y": 0.8009365328851202,
+        "z": 0
+      },
+      "scale": 1,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 1428.837150335312
+    },
+    {
+      "id": "stamp-mmkj5i15-938f8975257cd",
+      "stampKey": "ELIN_ALG_ENERGIESAEULE",
+      "worldPos": {
+        "x": 0.2656005776779992,
+        "y": 0.8849209112704457,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.2656005776779992,
+        "y": 0.8849209112704457,
+        "z": 0
+      },
+      "scale": 1,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 1428.837150335312
+    },
+    {
+      "id": "stamp-mmkj5iaw-38a87ac8ff3f6",
+      "stampKey": "ELIN_ALG_ENERGIESAEULE",
+      "worldPos": {
+        "x": 0.2005126817737307,
+        "y": 0.7813401779285443,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.2005126817737307,
+        "y": 0.7813401779285443,
+        "z": 0
+      },
+      "scale": 1,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 1428.837150335312
+    },
+    {
+      "id": "stamp-mmkj5ir5-2bd663147abe8",
+      "stampKey": "ELIN_ALG_ENERGIESAEULE",
+      "worldPos": {
+        "x": 0.6701253500722704,
+        "y": 0.8016364027049979,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.6701253500722704,
+        "y": 0.8016364027049979,
+        "z": 0
+      },
+      "scale": 1,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 1428.837150335312
+    },
+    {
+      "id": "stamp-mmkj5izo-e2f0321f7c4528",
+      "stampKey": "ELIN_ALG_ENERGIESAEULE",
+      "worldPos": {
+        "x": 0.6673258706785383,
+        "y": 0.9108160946059211,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.6673258706785383,
+        "y": 0.9108160946059211,
+        "z": 0
+      },
+      "scale": 1,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 1428.837150335312
+    }
+  ]
+}
