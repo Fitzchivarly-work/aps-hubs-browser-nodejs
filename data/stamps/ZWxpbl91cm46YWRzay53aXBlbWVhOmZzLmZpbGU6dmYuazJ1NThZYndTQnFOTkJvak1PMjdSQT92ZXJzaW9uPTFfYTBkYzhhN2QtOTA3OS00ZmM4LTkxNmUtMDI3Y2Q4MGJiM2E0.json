@@ -1,21 +1,25 @@
 {
   "key": "elin_urn:adsk.wipemea:fs.file:vf.k2u58YbwSBqNNBojMO27RA?version=1_a0dc8a7d-9079-4fc8-916e-027cd80bb3a4",
-  "updatedAt": "2026-03-10T12:39:40.481Z",
+  "updatedAt": "2026-03-11T13:41:37.902Z",
   "stamps": [
     {
       "id": "stamp-mmkj5hhb-f2299998f3cca8",
       "stampKey": "ELIN_ALG_ENERGIESAEULE",
+      "color": "#00B050",
+      "text": "",
       "worldPos": {
-        "x": 0.4511329322596142,
-        "y": 0.6839939821625404,
+        "x": 0.4454246641784865,
+        "y": 0.6825269714873801,
         "z": 0
       },
       "dbWorld": {
-        "x": 0.4511329322596142,
-        "y": 0.6839939821625404,
+        "x": 0.4454246641784865,
+        "y": 0.6825269714873801,
         "z": 0
       },
       "scale": 1,
+      "strokeWidth": 2,
+      "rotation": 0,
       "issueType": "allgemein",
       "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
       "referenceZoom": 1428.837150335312
@@ -23,17 +27,21 @@
     {
       "id": "stamp-mmkj5i15-938f8975257cd",
       "stampKey": "ELIN_ALG_ENERGIESAEULE",
+      "color": null,
+      "text": "",
       "worldPos": {
-        "x": 0.4377252790801529,
-        "y": 0.8688784685691018,
+        "x": 0.31564332181107213,
+        "y": 0.9020250338693406,
         "z": 0
       },
       "dbWorld": {
-        "x": 0.4377252790801529,
-        "y": 0.8688784685691018,
+        "x": 0.31564332181107213,
+        "y": 0.9020250338693406,
         "z": 0
       },
       "scale": 1,
+      "strokeWidth": 2,
+      "rotation": 0,
       "issueType": "allgemein",
       "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
       "referenceZoom": 1428.837150335312
@@ -41,17 +49,21 @@
     {
       "id": "stamp-mmkj5iaw-38a87ac8ff3f6",
       "stampKey": "ELIN_ALG_ENERGIESAEULE",
+      "color": "#000000",
+      "text": "jajajaj",
       "worldPos": {
-        "x": 0.45042726630280044,
-        "y": 0.8215988479994849,
+        "x": 0.4977924686318827,
+        "y": 0.7970051716838846,
         "z": 0
       },
       "dbWorld": {
-        "x": 0.45042726630280044,
-        "y": 0.8215988479994849,
+        "x": 0.4977924686318827,
+        "y": 0.7970051716838846,
         "z": 0
       },
-      "scale": 1,
+      "scale": 0.85,
+      "strokeWidth": 10,
+      "rotation": 360,
       "issueType": "allgemein",
       "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
       "referenceZoom": 1428.837150335312
@@ -59,17 +71,21 @@
     {
       "id": "stamp-mmkj5ir5-2bd663147abe8",
       "stampKey": "ELIN_ALG_ENERGIESAEULE",
+      "color": "#00B050",
+      "text": "",
       "worldPos": {
-        "x": 0.4024419812394652,
-        "y": 0.7863155490669349,
+        "x": 0.404648228627701,
+        "y": 0.6624623738666764,
         "z": 0
       },
       "dbWorld": {
-        "x": 0.4024419812394652,
-        "y": 0.7863155490669349,
+        "x": 0.404648228627701,
+        "y": 0.6624623738666764,
         "z": 0
       },
-      "scale": 1,
+      "scale": 1.4,
+      "strokeWidth": 2,
+      "rotation": 0,
       "issueType": "allgemein",
       "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
       "referenceZoom": 1428.837150335312
@@ -77,17 +93,21 @@
     {
       "id": "stamp-mmkj5izo-e2f0321f7c4528",
       "stampKey": "ELIN_ALG_ENERGIESAEULE",
+      "color": "#00B050",
+      "text": "",
       "worldPos": {
-        "x": 0.33822637916941356,
-        "y": 0.8357121675725049,
+        "x": 0.3069142323075644,
+        "y": 0.6352780803160456,
         "z": 0
       },
       "dbWorld": {
-        "x": 0.33822637916941356,
-        "y": 0.8357121675725049,
+        "x": 0.3069142323075644,
+        "y": 0.6352780803160456,
         "z": 0
       },
       "scale": 1,
+      "strokeWidth": 2,
+      "rotation": 0,
       "issueType": "allgemein",
       "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
       "referenceZoom": 1428.837150335312
@@ -95,6 +115,8 @@
     {
       "id": "stamp-mmkkduso-0610db7cdf45f8",
       "stampKey": "ELIN_BMA_Loopsirene mit Blitzleuchte",
+      "color": null,
+      "text": "",
       "worldPos": {
         "x": 0.33400647842922676,
         "y": 0.5770060763957674,
@@ -106,6 +128,8 @@
         "z": 0
       },
       "scale": 0.25,
+      "strokeWidth": 2,
+      "rotation": 0,
       "issueType": "allgemein",
       "issueSubtypeId": "a46d8a57-7079-5e41-a988-4e71c327eba7",
       "referenceZoom": 1545.0100178718567
@@ -113,6 +137,8 @@
     {
       "id": "stamp-mmkkr7bp-a4c42f6c0eb458",
       "stampKey": "ELIN_STS_STECKDOSE_1F_USB",
+      "color": null,
+      "text": "",
       "worldPos": {
         "x": 0.31859644166209944,
         "y": 0.5788663374700893,
@@ -124,9 +150,121 @@
         "z": 0
       },
       "scale": 2,
+      "strokeWidth": 2,
+      "rotation": 0,
       "issueType": "allgemein",
       "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
       "referenceZoom": 8192.00001811981
+    },
+    {
+      "id": "stamp-mmm2nnva-c3ba49b6950d5",
+      "stampKey": "ELIN_STS_CEE_STECKDOSE_5_16A",
+      "color": "#00B050",
+      "text": "ggggggggggg",
+      "worldPos": {
+        "x": 0.4538479419856037,
+        "y": 0.80141215332831,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.4538479419856037,
+        "y": 0.80141215332831,
+        "z": 0
+      },
+      "scale": 1.55,
+      "strokeWidth": 10,
+      "rotation": 270,
+      "issueType": "allgemein",
+      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
+      "referenceZoom": 8192.000018119812
+    },
+    {
+      "id": "stamp-mmm2noxb-4a0df57f376f2",
+      "stampKey": "ELIN_STS_CEE_STECKDOSE_5_16A",
+      "color": "#FFC000",
+      "text": "Aufpassen",
+      "worldPos": {
+        "x": 0.47518056483152893,
+        "y": 0.8073539023015509,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.47518056483152893,
+        "y": 0.8073539023015509,
+        "z": 0
+      },
+      "scale": 1,
+      "strokeWidth": 10,
+      "rotation": 180,
+      "issueType": "allgemein",
+      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
+      "referenceZoom": 8192.000018119812
+    },
+    {
+      "id": "stamp-mmm2npy9-a63be417b74f18",
+      "stampKey": "ELIN_STS_CEE_STECKDOSE_5_16A",
+      "color": "#C00000",
+      "text": "OK",
+      "worldPos": {
+        "x": 0.4744481429128732,
+        "y": 0.7858695260209607,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.4744481429128732,
+        "y": 0.7858695260209607,
+        "z": 0
+      },
+      "scale": 1,
+      "strokeWidth": 10,
+      "rotation": 180,
+      "issueType": "allgemein",
+      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
+      "referenceZoom": 8192.000018119812
+    },
+    {
+      "id": "stamp-mmm2nqgb-ac3fefd41c33e",
+      "stampKey": "ELIN_STS_CEE_STECKDOSE_5_16A",
+      "color": "#C00000",
+      "text": "Korrektur",
+      "worldPos": {
+        "x": 0.4655370095692283,
+        "y": 0.8072318319817748,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.4655370095692283,
+        "y": 0.8072318319817748,
+        "z": 0
+      },
+      "scale": 1,
+      "strokeWidth": 10,
+      "rotation": 180,
+      "issueType": "allgemein",
+      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
+      "referenceZoom": 8192.000018119812
+    },
+    {
+      "id": "stamp-mmm2s4uj-8af02b06283fa8",
+      "stampKey": "ELIN_STS_CEE_STECKDOSE_5P",
+      "color": "#00B050",
+      "text": "wen",
+      "worldPos": {
+        "x": 0.4346532186659109,
+        "y": 0.8251761689888586,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.4346532186659109,
+        "y": 0.8251761689888586,
+        "z": 0
+      },
+      "scale": 1,
+      "strokeWidth": 5,
+      "rotation": 0,
+      "issueType": "allgemein",
+      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
+      "referenceZoom": 8192.000018119812
     }
   ]
 }
