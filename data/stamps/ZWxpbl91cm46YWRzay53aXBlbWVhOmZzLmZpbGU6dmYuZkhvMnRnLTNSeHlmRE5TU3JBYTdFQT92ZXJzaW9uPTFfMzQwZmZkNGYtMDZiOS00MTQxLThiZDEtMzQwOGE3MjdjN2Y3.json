@@ -1,0 +1,292 @@
+{
+  "key": "elin_urn:adsk.wipemea:fs.file:vf.fHo2tg-3RxyfDNSSrAa7EA?version=1_340ffd4f-06b9-4141-8bd1-3408a727c7f7",
+  "updatedAt": "2026-03-11T14:30:57.209Z",
+  "stamps": [
+    {
+      "id": "stamp-mmm4spmr-a679893d5083c8",
+      "stampKey": "ELIN_STS_CEE_STECKDOSE_5_16A",
+      "color": null,
+      "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.12762314081192017,
+        "y": 0.8976216921205229,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.12762314081192017,
+        "y": 0.8976216921205229,
+        "z": 0
+      },
+      "scale": 0.25,
+      "strokeWidth": 15,
+      "rotation": 0,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 16384.000036239624
+    },
+    {
+      "id": "stamp-mmm4sqyl-b3fe3b9792153",
+      "stampKey": "ELIN_STS_CEE_STECKDOSE_5_16A",
+      "color": null,
+      "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.29678175917396654,
+        "y": 0.8277367860017897,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.29678175917396654,
+        "y": 0.8277367860017897,
+        "z": 0
+      },
+      "scale": 6,
+      "strokeWidth": 15,
+      "rotation": 0,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 16384.000036239624
+    },
+    {
+      "id": "stamp-mmm4srso-367ada4dea226",
+      "stampKey": "ELIN_STS_CEE_STECKDOSE_5_16A",
+      "color": null,
+      "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.13757187128067017,
+        "y": 0.8933492309185475,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.13757187128067017,
+        "y": 0.8933492309185475,
+        "z": 0
+      },
+      "scale": 1,
+      "strokeWidth": 15,
+      "rotation": 0,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 16384.000036239624
+    },
+    {
+      "id": "stamp-mmm4ss7c-b8b6c06c73428",
+      "stampKey": "ELIN_STS_CEE_STECKDOSE_5_16A",
+      "color": null,
+      "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.13458114862442017,
+        "y": 0.8878560665160075,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.13458114862442017,
+        "y": 0.8878560665160075,
+        "z": 0
+      },
+      "scale": 1,
+      "strokeWidth": 15,
+      "rotation": 0,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 16384.000036239624
+    },
+    {
+      "id": "stamp-mmm4sslm-9ee978495cd6a8",
+      "stampKey": "ELIN_STS_CEE_STECKDOSE_5_16A",
+      "color": null,
+      "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.13928085565567017,
+        "y": 0.8780904409114921,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.13928085565567017,
+        "y": 0.8780904409114921,
+        "z": 0
+      },
+      "scale": 1,
+      "strokeWidth": 15,
+      "rotation": 0,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 16384.000036239624
+    },
+    {
+      "id": "stamp-mmm4t6zq-b221b867a9f55",
+      "stampKey": "ELIN_STS_RASIERSTECKDOSE",
+      "color": null,
+      "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.17242294549942017,
+        "y": 0.896462024083765,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.17242294549942017,
+        "y": 0.896462024083765,
+        "z": 0
+      },
+      "scale": 1,
+      "strokeWidth": 15,
+      "rotation": 0,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 16384.000036239624
+    },
+    {
+      "id": "stamp-mmm4tbem-acf076f50d3de8",
+      "stampKey": "ELIN_STS_STECKDOSE_1F",
+      "color": null,
+      "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.12756210565567017,
+        "y": 0.8859639765589109,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.12756210565567017,
+        "y": 0.8859639765589109,
+        "z": 0
+      },
+      "scale": 1,
+      "strokeWidth": 15,
+      "rotation": 0,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 16384.000036239624
+    },
+    {
+      "id": "stamp-mmm4uftt-59c6ed13dd2ea8",
+      "stampKey": "ELIN_STS_STECKDOSE_2F",
+      "color": null,
+      "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.32301317735197155,
+        "y": 0.8846781579040726,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.32301317735197155,
+        "y": 0.8846781579040726,
+        "z": 0
+      },
+      "scale": 1,
+      "strokeWidth": 15,
+      "rotation": 0,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 1563.0111572742462
+    },
+    {
+      "id": "stamp-mmm4ut40-b50d6d50fddc",
+      "stampKey": "ELIN_STS_STECKDOSE_4F",
+      "color": null,
+      "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.26607178752226146,
+        "y": 0.779752467152481,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.26607178752226146,
+        "y": 0.779752467152481,
+        "z": 0
+      },
+      "scale": 2.65,
+      "strokeWidth": 16,
+      "rotation": 198,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 1563.0111572742462
+    },
+    {
+      "id": "stamp-mmm4v9no-8778e197a4367",
+      "stampKey": "ELIN_STS_STECKDOSE_4F",
+      "color": null,
+      "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.20534055000443838,
+        "y": 0.7812207186817061,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.20534055000443838,
+        "y": 0.7812207186817061,
+        "z": 0
+      },
+      "scale": 1,
+      "strokeWidth": 15,
+      "rotation": 0,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 5173.10758638382
+    },
+    {
+      "id": "stamp-mmm4w9so-fe367b639df618",
+      "stampKey": "ELIN_STS_STECKDOSE_4F",
+      "color": null,
+      "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.27719440201824763,
+        "y": 0.7957655912374435,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.27719440201824763,
+        "y": 0.7957655912374435,
+        "z": 0
+      },
+      "scale": 6,
+      "strokeWidth": 15,
+      "rotation": 0,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 13755.048357009888
+    }
+  ]
+}

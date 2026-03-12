@@ -1,12 +1,16 @@
 {
   "key": "elin_urn:adsk.wipemea:fs.file:vf.k2u58YbwSBqNNBojMO27RA?version=1_a0dc8a7d-9079-4fc8-916e-027cd80bb3a4",
-  "updatedAt": "2026-03-11T13:41:37.902Z",
+  "updatedAt": "2026-03-11T14:05:31.481Z",
   "stamps": [
     {
       "id": "stamp-mmkj5hhb-f2299998f3cca8",
       "stampKey": "ELIN_ALG_ENERGIESAEULE",
       "color": "#00B050",
       "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
       "worldPos": {
         "x": 0.4454246641784865,
         "y": 0.6825269714873801,
@@ -29,6 +33,10 @@
       "stampKey": "ELIN_ALG_ENERGIESAEULE",
       "color": null,
       "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
       "worldPos": {
         "x": 0.31564332181107213,
         "y": 0.9020250338693406,
@@ -51,14 +59,18 @@
       "stampKey": "ELIN_ALG_ENERGIESAEULE",
       "color": "#000000",
       "text": "jajajaj",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
       "worldPos": {
-        "x": 0.4977924686318827,
-        "y": 0.7970051716838846,
+        "x": 0.40670041929408585,
+        "y": 0.8298381478704899,
         "z": 0
       },
       "dbWorld": {
-        "x": 0.4977924686318827,
-        "y": 0.7970051716838846,
+        "x": 0.40670041929408585,
+        "y": 0.8298381478704899,
         "z": 0
       },
       "scale": 0.85,
@@ -73,6 +85,10 @@
       "stampKey": "ELIN_ALG_ENERGIESAEULE",
       "color": "#00B050",
       "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
       "worldPos": {
         "x": 0.404648228627701,
         "y": 0.6624623738666764,
@@ -95,6 +111,10 @@
       "stampKey": "ELIN_ALG_ENERGIESAEULE",
       "color": "#00B050",
       "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
       "worldPos": {
         "x": 0.3069142323075644,
         "y": 0.6352780803160456,
@@ -117,6 +137,10 @@
       "stampKey": "ELIN_BMA_Loopsirene mit Blitzleuchte",
       "color": null,
       "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
       "worldPos": {
         "x": 0.33400647842922676,
         "y": 0.5770060763957674,
@@ -139,6 +163,10 @@
       "stampKey": "ELIN_STS_STECKDOSE_1F_USB",
       "color": null,
       "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
       "worldPos": {
         "x": 0.31859644166209944,
         "y": 0.5788663374700893,
@@ -161,6 +189,10 @@
       "stampKey": "ELIN_STS_CEE_STECKDOSE_5_16A",
       "color": "#00B050",
       "text": "ggggggggggg",
+      "textOffset": {
+        "x": -67.0967741935484,
+        "y": 9.677419354838712
+      },
       "worldPos": {
         "x": 0.4538479419856037,
         "y": 0.80141215332831,
@@ -171,9 +203,9 @@
         "y": 0.80141215332831,
         "z": 0
       },
-      "scale": 1.55,
+      "scale": 1.85,
       "strokeWidth": 10,
-      "rotation": 270,
+      "rotation": 180,
       "issueType": "allgemein",
       "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
       "referenceZoom": 8192.000018119812
@@ -183,6 +215,10 @@
       "stampKey": "ELIN_STS_CEE_STECKDOSE_5_16A",
       "color": "#FFC000",
       "text": "Aufpassen",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
       "worldPos": {
         "x": 0.47518056483152893,
         "y": 0.8073539023015509,
@@ -205,6 +241,10 @@
       "stampKey": "ELIN_STS_CEE_STECKDOSE_5_16A",
       "color": "#C00000",
       "text": "OK",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
       "worldPos": {
         "x": 0.4744481429128732,
         "y": 0.7858695260209607,
@@ -227,6 +267,10 @@
       "stampKey": "ELIN_STS_CEE_STECKDOSE_5_16A",
       "color": "#C00000",
       "text": "Korrektur",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
       "worldPos": {
         "x": 0.4655370095692283,
         "y": 0.8072318319817748,
@@ -249,6 +293,10 @@
       "stampKey": "ELIN_STS_CEE_STECKDOSE_5P",
       "color": "#00B050",
       "text": "wen",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
       "worldPos": {
         "x": 0.4346532186659109,
         "y": 0.8251761689888586,
@@ -265,6 +313,110 @@
       "issueType": "allgemein",
       "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
       "referenceZoom": 8192.000018119812
+    },
+    {
+      "id": "stamp-mmm3nsoy-472d3f16fada1",
+      "stampKey": "ELIN_ALG_Einfügepunkt",
+      "color": null,
+      "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.43269795790377025,
+        "y": 0.8266753571347484,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.43269795790377025,
+        "y": 0.8266753571347484,
+        "z": 0
+      },
+      "scale": 1,
+      "strokeWidth": 5,
+      "rotation": 0,
+      "issueType": "allgemein",
+      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
+      "referenceZoom": 7981.80329990387
+    },
+    {
+      "id": "stamp-mmm3ntk5-947d45284f9bd",
+      "stampKey": "ELIN_ALG_Einfügepunkt",
+      "color": "#FFC000",
+      "text": "dder",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.424303864709503,
+        "y": 0.823042092463391,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.424303864709503,
+        "y": 0.823042092463391,
+        "z": 0
+      },
+      "scale": 1,
+      "strokeWidth": 10,
+      "rotation": 0,
+      "issueType": "allgemein",
+      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
+      "referenceZoom": 7981.80329990387
+    },
+    {
+      "id": "stamp-mmm3ohnv-3cbf75dedf2dd8",
+      "stampKey": "ELIN_ALG_Einfügepunkt",
+      "color": "#C00000",
+      "text": "efersgrg",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.43660650464915435,
+        "y": 0.8400868619296403,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.43660650464915435,
+        "y": 0.8400868619296403,
+        "z": 0
+      },
+      "scale": 0.65,
+      "strokeWidth": 10,
+      "rotation": 46,
+      "issueType": "allgemein",
+      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
+      "referenceZoom": 5951.965124130249
+    },
+    {
+      "id": "stamp-mmm3vym3-7cf4a35698e518",
+      "stampKey": "ELIN_BMA_BLITZLEUCHTE LOOP",
+      "color": "#00B050",
+      "text": "Loop",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.42333357912639924,
+        "y": 0.8323583234588057,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.42333357912639924,
+        "y": 0.8323583234588057,
+        "z": 0
+      },
+      "scale": 1,
+      "strokeWidth": 5,
+      "rotation": 0,
+      "issueType": "allgemein",
+      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
+      "referenceZoom": 5951.965124130249
     }
   ]
 }

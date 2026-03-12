@@ -18,7 +18,7 @@
 
   const USE_2D_VECTOR_PIN = !!(window.ELIN_FLAGS && window.ELIN_FLAGS.USE_2D_VECTOR_PIN);
   const DEFAULT_STAMP_COLOR = '#C00000';
-  const DEFAULT_STROKE_WIDTH = 5;
+  const DEFAULT_STROKE_WIDTH = 15;
 
   // ----------------------------- Small utilities -----------------------------
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
@@ -744,7 +744,7 @@
 
         <div class="elin-properties-panel__row">
           <div class="elin-properties-panel__label">Liniendicke</div>
-          <input class="elin-range" type="range" min="0.5" max="10" step="0.5" value="5" data-role="strokewidth" />
+          <input class="elin-range" type="range" min="1" max="50" step="1" value="15" data-role="strokewidth" />
         </div>
 
         <div class="elin-properties-panel__row">
@@ -823,7 +823,7 @@
       const strokeWidthRange = panel.querySelector('[data-role="strokewidth"]');
       strokeWidthRange.addEventListener('input', () => {
         const raw = Number(strokeWidthRange.value);
-        const v = clamp(raw, 0.5, 10);
+        const v = clamp(raw, 1, 50);
         for (const s of this._selected) {
           s.strokeWidth = v;
           this._refreshStampHtml(s);
@@ -891,7 +891,7 @@
 
       const strokeWidths = this._selected.map((s) => (typeof s.strokeWidth === 'number' ? s.strokeWidth : DEFAULT_STROKE_WIDTH));
       const avgStroke = strokeWidths.reduce((a, b) => a + b, 0) / Math.max(1, strokeWidths.length);
-      this._propsPanel.querySelector('[data-role="strokewidth"]').value = String(clamp(avgStroke, 0.5, 10));
+      this._propsPanel.querySelector('[data-role="strokewidth"]').value = String(clamp(avgStroke, 1, 50));
 
       const rotations = this._selected.map((s) => (typeof s.rotation === 'number' ? s.rotation : 0));
       const avgRot = rotations.reduce((a, b) => a + b, 0) / Math.max(1, rotations.length);
@@ -1096,6 +1096,10 @@
         stampKey: s.stampKey,
         color: s.color || null,
         text: s.text || '',
+        textOffset: {
+          x: Number(s.textOffset && s.textOffset.x) || 0,
+          y: Number(s.textOffset && s.textOffset.y) || 0
+        },
         worldPos: vecToPlain(s.worldPos),
         dbWorld: vecToPlain(s.dbWorld || s.worldPos),
         scale: (typeof s.scale === 'number' ? s.scale : 1),
@@ -1172,10 +1176,11 @@
             stampKey: d.stampKey,
             color: d.color || null,
             text: d.text || '',
+            textOffset: d.textOffset || { x: 0, y: 0 },
             worldPos: plainToVec3(d.worldPos),
             dbWorld: plainToVec3(d.dbWorld || d.worldPos),
             scale: (typeof d.scale === 'number' ? d.scale : 1),
-            strokeWidth: (typeof d.strokeWidth === 'number' ? d.strokeWidth : DEFAULT_STROKE_WIDTH),
+            strokeWidth: d.strokeWidth || 15,
             rotation: (typeof d.rotation === 'number' ? d.rotation : 0),
             issueType: d.issueType || 'allgemein',
             issueSubtypeId: d.issueSubtypeId || null,
@@ -1313,10 +1318,14 @@
           ? data.dbWorld.clone()
           : (data.worldPos instanceof THREE.Vector3 ? data.worldPos.clone() : plainToVec3(data.worldPos)),
         scale: (typeof data.scale === 'number' ? data.scale : 1),
-        strokeWidth: (typeof data.strokeWidth === 'number' ? data.strokeWidth : DEFAULT_STROKE_WIDTH),
+        strokeWidth: data.strokeWidth || 15,
         rotation: (typeof data.rotation === 'number' ? data.rotation : 0),
         color: data.color || null,
         text: data.text || '',
+        textOffset: {
+          x: Number(data.textOffset && data.textOffset.x) || 0,
+          y: Number(data.textOffset && data.textOffset.y) || 0
+        },
         issueType: data.issueType || 'allgemein',
         issueSubtypeId: data.issueSubtypeId || null,
         referenceZoom: data.referenceZoom || this._getCurrentZoomFactor(), // Zoom beim Erstellen
@@ -1347,6 +1356,42 @@
       // selection + move
       root.addEventListener('pointerdown', (ev) => {
         if (ev.button !== 0) return;
+
+        const isTextEl = ev.target && ev.target.closest && ev.target.closest('.elin-stamp__custom-text');
+        if (isTextEl) {
+          ev.stopPropagation();
+          ev.preventDefault();
+
+          const additive = !!ev.shiftKey;
+          const toggle = !!ev.ctrlKey || !!ev.metaKey;
+          if (toggle) this._toggleSelection(stamp);
+          else this._selectStamp(stamp, additive);
+
+          this._dragState = {
+            mode: 'move-text',
+            target: stamp,
+            startClient: { x: ev.clientX, y: ev.clientY },
+            startOffset: {
+              x: Number(stamp.textOffset && stamp.textOffset.x) || 0,
+              y: Number(stamp.textOffset && stamp.textOffset.y) || 0
+            }
+          };
+
+          this._ignoreNextContainerClick = true;
+          try { root.setPointerCapture(ev.pointerId); } catch (e) { /* ignore */ }
+
+          const onMove = (mv) => this._onStampPointerMove(mv);
+          const onUp = (up) => {
+            this._onStampPointerUp(up);
+            window.removeEventListener('pointermove', onMove, true);
+            window.removeEventListener('pointerup', onUp, true);
+          };
+
+          window.addEventListener('pointermove', onMove, true);
+          window.addEventListener('pointerup', onUp, true);
+          return;
+        }
+
         ev.stopPropagation();
         ev.preventDefault();
 
@@ -1394,13 +1439,16 @@
       const textEl = stamp.el.querySelector('.elin-stamp__custom-text');
       if (!textEl) return;
       const text = stamp.text || '';
-      const textBorderWidth = (stamp.strokeWidth || DEFAULT_STROKE_WIDTH) * (1 / 5);
+      const textOffsetX = Number(stamp.textOffset && stamp.textOffset.x) || 0;
+      const textOffsetY = Number(stamp.textOffset && stamp.textOffset.y) || 0;
+      const textBorderWidth = Math.max(1, Math.min(3, (stamp.strokeWidth || 15) * 0.1));
       textEl.textContent = text;
       textEl.style.display = text ? 'block' : 'none';
       textEl.style.color = stamp.color || DEFAULT_STAMP_COLOR;
       textEl.style.border = `${textBorderWidth}px solid ${stamp.color || DEFAULT_STAMP_COLOR}`;
       textEl.style.background = 'rgba(255, 255, 255, 0.85)';
       textEl.style.padding = '1px 2px';
+      textEl.style.transform = `translate(calc(-50% + ${textOffsetX}px), ${textOffsetY}px)`;
     }
 
     _onStampPointerMove(ev) {
@@ -1408,7 +1456,21 @@
 
       const st = this._dragState;
 
-      if (st.mode === 'move') {
+      if (st.mode === 'move-text') {
+        const currentZoom = this._getCurrentZoomFactor();
+        const zoomRatio = currentZoom / (st.target.referenceZoom || 1);
+        const finalScale = (st.target.scale || 1) * zoomRatio;
+
+        const dx = ev.clientX - st.startClient.x;
+        const dy = ev.clientY - st.startClient.y;
+
+        const safeScale = (finalScale && Number.isFinite(finalScale) && Math.abs(finalScale) > 1e-6) ? finalScale : 1;
+        st.target.textOffset.x = st.startOffset.x + (dx / safeScale);
+        st.target.textOffset.y = st.startOffset.y + (dy / safeScale);
+
+        this._updateStampTextDom(st.target);
+        return;
+      } else if (st.mode === 'move') {
         const world = this._eventToWorldPoint(ev, st.anchorStartWorld);
         if (!world) return;
 
@@ -1899,9 +1961,13 @@
           white-space: nowrap;
           font-size: 12px;
           font-weight: 700;
-          pointer-events: none;
+          pointer-events: auto;
+          cursor: grab;
+          user-select: none;
           text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;
         }
+
+        .elin-stamp__custom-text:active { cursor: grabbing; }
 
         .elin-stamp.selected .elin-stamp__body {
           outline: none;
