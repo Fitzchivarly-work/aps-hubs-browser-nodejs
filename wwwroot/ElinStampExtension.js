@@ -556,8 +556,13 @@
       btn.addEventListener('click', (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
-        this._togglePicker();
-        this._ensureLibraryLoaded();
+        if (this._placing) {
+          // Zweiter Klick = Platzieren abbrechen
+          this._setPlacingMode(false);
+        } else {
+          this._togglePicker();
+          this._ensureLibraryLoaded();
+        }
       });
 
       this.viewer.container.appendChild(btn);
@@ -700,6 +705,8 @@
       }
       if (this._launcherBtn) {
         this._launcherBtn.classList.toggle('is-placing', this._placing);
+        this._launcherBtn.textContent = this._placing ? '✕ Abbrechen' : 'ELIN Stempel';
+        this._launcherBtn.title = this._placing ? 'Platzieren beenden (Escape)' : 'Stempel-Bibliothek öffnen';
       }
     }
 
@@ -1920,8 +1927,14 @@
         }
         .elin-launcher-btn:hover { background: #f5f5f5; }
         .elin-launcher-btn.is-placing {
-          border-color: #0096ff;
-          box-shadow: 0 0 0 3px rgba(0,150,255,0.15), 0 4px 16px rgba(0,0,0,0.12);
+          background: #ff4d00;
+          color: #ffffff;
+          border-color: #cc3d00;
+          box-shadow: 0 0 0 3px rgba(255,77,0,0.25), 0 4px 16px rgba(0,0,0,0.18);
+          font-weight: bold;
+        }
+        .elin-launcher-btn.is-placing:hover {
+          background: #e64400;
         }
 
         /* Stamp overlay */
