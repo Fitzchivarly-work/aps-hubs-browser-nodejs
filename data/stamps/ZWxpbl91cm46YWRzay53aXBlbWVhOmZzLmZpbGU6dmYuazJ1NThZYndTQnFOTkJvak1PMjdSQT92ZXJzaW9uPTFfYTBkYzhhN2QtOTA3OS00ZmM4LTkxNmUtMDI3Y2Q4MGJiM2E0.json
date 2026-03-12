@@ -1,6 +1,6 @@
 {
   "key": "elin_urn:adsk.wipemea:fs.file:vf.k2u58YbwSBqNNBojMO27RA?version=1_a0dc8a7d-9079-4fc8-916e-027cd80bb3a4",
-  "updatedAt": "2026-03-12T06:45:10.383Z",
+  "updatedAt": "2026-03-12T14:07:48.998Z",
   "stamps": [
     {
       "id": "stamp-mmn318eb-6a4ec31960de68",
@@ -22,8 +22,8 @@
         "z": 0
       },
       "scale": 0.9,
-      "strokeWidth": 15,
-      "rotation": 44,
+      "strokeWidth": 14,
+      "rotation": 0,
       "issueType": "allgemein",
       "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
       "referenceZoom": 6873.708661079407
@@ -47,9 +47,9 @@
         "y": 0.5554848644425122,
         "z": 0
       },
-      "scale": 1,
-      "strokeWidth": 19,
-      "rotation": 180,
+      "scale": 0.9,
+      "strokeWidth": 14,
+      "rotation": 0,
       "issueType": "allgemein",
       "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
       "referenceZoom": 6873.708661079407
@@ -73,12 +73,38 @@
         "y": 0.5558510754018404,
         "z": 0
       },
-      "scale": 0.95,
-      "strokeWidth": 15,
+      "scale": 0.9,
+      "strokeWidth": 14,
       "rotation": 180,
       "issueType": "allgemein",
       "issueSubtypeId": "5d0f2c82-54c9-556e-a1bf-08d81bb25247",
       "referenceZoom": 8192.000018119814
+    },
+    {
+      "id": "stamp-mmnjkooi-d581d1df78a33",
+      "stampKey": "ELIN_BMA_Brandmelder mit Sirene",
+      "color": null,
+      "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.4381909668445587,
+        "y": 0.5473487973211895,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.4381909668445587,
+        "y": 0.5473487973211895,
+        "z": 0
+      },
+      "scale": 0.9,
+      "strokeWidth": 14,
+      "rotation": 0,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 8192.000160217285
     }
   ]
 }

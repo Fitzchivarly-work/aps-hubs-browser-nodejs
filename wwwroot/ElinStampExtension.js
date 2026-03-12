@@ -234,6 +234,8 @@
       this._styleEl = null;
       this._libraryLoading = false;
       this._ignoreNextContainerClick = false;
+      this._multiSelectMode = false;
+      this._panelDragState = null;
 
       // Config
       this._baseSizePx = Number(this.options.baseSizePx) || 40;
@@ -703,14 +705,29 @@
       }
     }
 
+    _setMultiSelectMode(on) {
+      this._multiSelectMode = !!on;
+      if (!this._propsPanel) return;
+
+      const btn = this._propsPanel.querySelector('[data-action="multiselect"]');
+      if (!btn) return;
+
+      btn.classList.toggle('is-active', this._multiSelectMode);
+      btn.setAttribute('aria-pressed', String(this._multiSelectMode));
+      btn.textContent = this._multiSelectMode ? 'Mehrfachauswahl: An' : 'Mehrfachauswahl';
+    }
+
     // ----------------------------- UI: properties panel -----------------------------
     _createPropertiesPanel() {
       const panel = document.createElement('div');
       panel.className = 'elin-properties-panel';
-      panel.style.display = 'none';
+      panel.style.display = 'flex';
 
       panel.innerHTML = `
-        <div class="elin-properties-panel__title">ELIN Prüfung</div>
+        <div class="elin-properties-panel__header" data-role="paneldrag">
+          <div class="elin-properties-panel__title">ELIN Prüfung</div>
+          <button class="elin-btn elin-btn--toggle" type="button" data-action="multiselect" aria-pressed="false">Mehrfachauswahl</button>
+        </div>
 
         <div class="elin-properties-panel__row">
           <div class="elin-properties-panel__label">Selektiert</div>
@@ -761,6 +778,14 @@
       panel.addEventListener('click', (ev) => {
         const accBtn = safeClosest(ev.target, 'button[data-action="acc"]');
         const delBtn = safeClosest(ev.target, 'button[data-action="del"]');
+        const multiBtn = safeClosest(ev.target, 'button[data-action="multiselect"]');
+
+        if (multiBtn) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          this._setMultiSelectMode(!this._multiSelectMode);
+          return;
+        }
 
         if (accBtn) {
           ev.preventDefault();
@@ -778,6 +803,44 @@
           this._deleteSelectedStamps();
         }
       });
+
+      const dragHandle = panel.querySelector('[data-role="paneldrag"]');
+      dragHandle.addEventListener('pointerdown', (ev) => {
+        if (safeClosest(ev.target, 'button, input, select, textarea')) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        const rect = panel.getBoundingClientRect();
+        panel.style.left = `${rect.left}px`;
+        panel.style.top = `${rect.top}px`;
+        panel.style.right = 'auto';
+
+        this._panelDragState = {
+          startClientX: ev.clientX,
+          startClientY: ev.clientY,
+          startLeft: rect.left,
+          startTop: rect.top
+        };
+
+        const onMove = (mv) => {
+          if (!this._panelDragState) return;
+          const dx = mv.clientX - this._panelDragState.startClientX;
+          const dy = mv.clientY - this._panelDragState.startClientY;
+          const nextLeft = clamp(this._panelDragState.startLeft + dx, 8, Math.max(8, window.innerWidth - panel.offsetWidth - 8));
+          const nextTop = clamp(this._panelDragState.startTop + dy, 8, Math.max(8, window.innerHeight - panel.offsetHeight - 8));
+          panel.style.left = `${nextLeft}px`;
+          panel.style.top = `${nextTop}px`;
+        };
+
+        const onUp = () => {
+          this._panelDragState = null;
+          window.removeEventListener('pointermove', onMove, true);
+          window.removeEventListener('pointerup', onUp, true);
+        };
+
+        window.addEventListener('pointermove', onMove, true);
+        window.addEventListener('pointerup', onUp, true);
+      }, true);
 
       const issueTypeSel = panel.querySelector('[data-role="issuetype"]');
       issueTypeSel.innerHTML = '<option value="">Lade aktive ACC Subtypes ...</option>';
@@ -854,15 +917,12 @@
 
       this.viewer.container.appendChild(panel);
       this._propsPanel = panel;
+      this._setMultiSelectMode(false);
+      this._updatePropertiesPanel();
     }
 
     _updatePropertiesPanel() {
       if (!this._propsPanel) return;
-
-      if (this._selected.length === 0) {
-        this._propsPanel.style.display = 'none';
-        return;
-      }
 
       if (!this._issueSubtypeOptions || this._issueSubtypeOptions.length === 0) {
         this._loadIssueSubtypeOptions();
@@ -870,6 +930,25 @@
 
       this._propsPanel.style.display = 'flex';
       this._propsPanel.querySelector('[data-role="selcount"]').textContent = String(this._selected.length);
+
+      const accBtn = this._propsPanel.querySelector('button[data-action="acc"]');
+      const delBtn = this._propsPanel.querySelector('button[data-action="del"]');
+      const hasSelection = this._selected.length > 0;
+      if (accBtn) accBtn.disabled = !hasSelection;
+      if (delBtn) delBtn.disabled = !hasSelection;
+
+      if (!hasSelection) {
+        const issueSel = this._propsPanel.querySelector('[data-role="issuetype"]');
+        const colorSel = this._propsPanel.querySelector('[data-role="stampcolor"]');
+        const textInput = this._propsPanel.querySelector('[data-role="stamptext"]');
+        issueSel.value = this._defaultIssueSubtypeId || '';
+        colorSel.value = DEFAULT_STAMP_COLOR;
+        textInput.value = '';
+        this._propsPanel.querySelector('[data-role="scale"]').value = '1';
+        this._propsPanel.querySelector('[data-role="strokewidth"]').value = String(DEFAULT_STROKE_WIDTH);
+        this._propsPanel.querySelector('[data-role="rotation"]').value = '0';
+        return;
+      }
 
       const types = new Set(this._selected.map((s) => s.issueSubtypeId || this._defaultIssueSubtypeId || ''));
       const issueSel = this._propsPanel.querySelector('[data-role="issuetype"]');
@@ -1364,6 +1443,10 @@
 
           const additive = !!ev.shiftKey;
           const toggle = !!ev.ctrlKey || !!ev.metaKey;
+          if (this._multiSelectMode) {
+            this._toggleSelection(stamp);
+            return;
+          }
           if (toggle) this._toggleSelection(stamp);
           else this._selectStamp(stamp, additive);
 
@@ -1397,6 +1480,11 @@
 
         const additive = !!ev.shiftKey;
         const toggle = !!ev.ctrlKey || !!ev.metaKey;
+
+        if (this._multiSelectMode) {
+          this._toggleSelection(stamp);
+          return;
+        }
 
         if (toggle) this._toggleSelection(stamp);
         else this._selectStamp(stamp, additive);
@@ -1883,6 +1971,8 @@
         .elin-btn--danger { border-color: #e16b6b; color: #b10000; }
         .elin-btn--danger:hover { background: #fff0f0; }
         .elin-btn--ghost { border: none; background: transparent; font-size: 14px; padding: 4px 8px; }
+        .elin-btn--toggle.is-active { border-color: #005eb8; background: #e9f4ff; color: #005eb8; }
+        .elin-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
         .elin-input {
           width: 100%;
@@ -1892,6 +1982,8 @@
           border: 1px solid #c7c7c7;
           font-size: 12px;
           outline: none;
+          background: rgba(255,255,255,0.9);
+          color: #000;
         }
 
         .elin-select {
@@ -1900,7 +1992,8 @@
           border-radius: 8px;
           border: 1px solid #c7c7c7;
           font-size: 12px;
-          background: #fff;
+          background: rgba(255,255,255,0.9);
+          color: #000;
         }
 
         .elin-range { width: 100%; }
@@ -2065,9 +2158,9 @@
           position: absolute;
           top: 10px;
           right: 10px;
-          width: 280px;
+          width: min(320px, calc(100vw - 20px));
           z-index: 10001;
-          background: white;
+          background: rgba(255,255,255,0.96);
           border: 1px solid #d0d0d0;
           border-radius: 12px;
           box-shadow: 0 8px 30px rgba(0,0,0,0.18);
@@ -2075,7 +2168,17 @@
           display: flex;
           flex-direction: column;
           gap: 10px;
+          touch-action: none;
         }
+        .elin-properties-panel__header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          cursor: grab;
+          touch-action: none;
+        }
+        .elin-properties-panel__header:active { cursor: grabbing; }
         .elin-properties-panel__title { font-weight: 700; font-size: 13px; }
         .elin-properties-panel__row {
           display: grid;
@@ -2087,6 +2190,28 @@
         .elin-properties-panel__value { font-size: 12px; font-weight: 700; }
         .elin-properties-panel__actions { display: flex; gap: 8px; }
         .elin-properties-panel__actions .elin-btn { flex: 1; }
+
+        .adsk-viewing-viewer .screen-mode-mask,
+        .adsk-viewing-viewer [class*="loading-mask"],
+        .adsk-viewing-viewer .docking-panel-container-solid-color-a,
+        .adsk-viewing-viewer .docking-panel-container-solid-color-b {
+          background: transparent !important;
+          box-shadow: none !important;
+        }
+
+        @media (max-width: 1024px) {
+          .elin-properties-panel {
+            left: 10px;
+            right: auto;
+            bottom: 10px;
+            top: auto;
+            width: min(360px, calc(100vw - 20px));
+          }
+
+          .elin-launcher-btn {
+            top: 64px;
+          }
+        }
       `;
       document.head.appendChild(style);
       this._styleEl = style;
