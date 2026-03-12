@@ -1,0 +1,21 @@
+ID;Bereich;Testfall;Schritte;Erwartetes Ergebnis;Status (OFFEN/OK/NOK/BLOCKED);Ist-Ergebnis;Schweregrad (BLOCKER/HOCH/MITTEL/NIEDRIG);Ticket/Link;Tester;Datum;Kommentar
+T01;Basis;Stempel platzieren;3 unterschiedliche Stempel im 2D-Viewer platzieren;Alle Stempel sichtbar und selektierbar;OFFEN;;;;;;
+T02;Panel;Eigenschaften anzeigen;Einen Stempel anklicken;Rechtes Panel zeigt Werte fuer Farbe, Liniendicke, Rotation, Text;OFFEN;;;;;;
+T03;Farbe;Farbwechsel pruefen;Nacheinander OK/Korrektur/Aufpassen setzen;SVG und Textfarbe aktualisieren sofort gemeinsam;OFFEN;;;;;;
+T04;Liniendicke;Stroke-Breite pruefen;Liniendicke auf 1, 15 und 50 setzen;SVG-Linien passen sich sichtbar an;OFFEN;;;;;;
+T05;Text-Rahmen;Rahmen-Skalierung pruefen;Liniendicke variieren waehrend Text sichtbar ist;Text-Rahmen bleibt dezent und skaliert plausibel;OFFEN;;;;;;
+T06;Rotation;Rotation mit Snap pruefen;Slider nahe 0/90/180/270/360 bewegen;Snap greift auf Fangpunkte;OFFEN;;;;;;
+T07;Text-Rotation;Text bleibt waagerecht;Stempel mehrfach rotieren;Nur Symbol rotiert, Text bleibt horizontal;OFFEN;;;;;;
+T08;Text-Eingabe;Text in Echtzeit;Optionalen Text eintippen;Text erscheint sofort unter dem Stempel;OFFEN;;;;;;
+T09;Text-Drag;Text unabhaengig ziehen;Auf Text klicken und nach links/rechts/oben/unten ziehen;Nur Text bewegt sich, Stempel bleibt stehen;OFFEN;;;;;;
+T10;Text-Drag Abgrenzung;Bubbling-Problem ausgeschlossen;Mehrfach Text ziehen und danach Stempel ziehen;Text-Drag startet nicht den Stempel-Move;OFFEN;;;;;;
+T11;Relative Lage;Text folgt dem Stempel;Text versetzen, dann gesamten Stempel verschieben;Text folgt mit exakt gleichem Offset;OFFEN;;;;;;
+T12;Multi-Select;Massenbearbeitung;2-3 Stempel mit Shift/Ctrl selektieren und Farbe/Dicke/Rotation/Text setzen;Aenderungen gelten fuer alle selektierten Stempel;OFFEN;;;;;;
+T13;Persistenz Reload;Speichern und Wiederherstellen;Seite neu laden;Alle Werte inkl. textOffset bleiben erhalten;OFFEN;;;;;;
+T14;Persistenz Modellwechsel;Scope je Modell;Modell wechseln und zurueck;Nur modellzugehoerige Stempel geladen, keine Vermischung;OFFEN;;;;;;
+T15;ACC Export;Issue-Anlage;1-2 Stempel nach ACC senden;Issue wird erstellt, Text in Title/Description sichtbar;OFFEN;;;;;;
+T16;ACC Payload;Payload-Inhalt validieren;Network auf /api/issues/create pruefen;Farbe, stroke-bezogenes SVG und Textfelder plausibel vorhanden;OFFEN;;;;;;
+T17;Fehlerfall;Robuste Fehlerbehandlung;ACC ohne gueltigen Kontext ausloesen (falls reproduzierbar);Verstaendliche Fehlermeldung, kein UI-Absturz;OFFEN;;;;;;
+T18;Performance;Last-Schnelltest;30-50 Stempel platzieren, 10 bearbeiten und bewegen;Bedienung bleibt fluessig ohne starke Haenger;OFFEN;;;;;;
+T19;Regression 3D;3D Basischeck;Kurzer Ablauf in 3D: platzieren, editieren, speichern, laden;Keine 3D-Regression im Vergleich zu 2D;OFFEN;;;;;;
+T20;Abnahme;Finale Freigabe;Alle kritischen und hohen Punkte auf OK;Keine BLOCKER/HOCH offen;OFFEN;;;;;;
