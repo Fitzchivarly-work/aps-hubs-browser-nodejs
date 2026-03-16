@@ -1,88 +1,10 @@
 {
   "key": "elin_urn:adsk.wipemea:fs.file:vf.k2u58YbwSBqNNBojMO27RA?version=1_a0dc8a7d-9079-4fc8-916e-027cd80bb3a4",
-  "updatedAt": "2026-03-12T14:07:48.998Z",
+  "updatedAt": "2026-03-16T08:50:39.046Z",
   "stamps": [
     {
-      "id": "stamp-mmn318eb-6a4ec31960de68",
-      "stampKey": "ELIN_BMA_Loopsirene mit Blitzleuchte",
-      "color": "#00B050",
-      "text": "OK",
-      "textOffset": {
-        "x": 37.97921872078626,
-        "y": -31.79655520810012
-      },
-      "worldPos": {
-        "x": 0.44660585800444236,
-        "y": 0.5469399420581866,
-        "z": 0
-      },
-      "dbWorld": {
-        "x": 0.44660585800444236,
-        "y": 0.5469399420581866,
-        "z": 0
-      },
-      "scale": 0.9,
-      "strokeWidth": 14,
-      "rotation": 0,
-      "issueType": "allgemein",
-      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
-      "referenceZoom": 6873.708661079407
-    },
-    {
-      "id": "stamp-mmn31oxt-1482576485179",
-      "stampKey": "ELIN_EUB_DOSE_STIFT_12F",
-      "color": "#FFC000",
-      "text": "COORDInaTion",
-      "textOffset": {
-        "x": -66.28698523244205,
-        "y": -13.425212198975606
-      },
-      "worldPos": {
-        "x": 0.43500917762572633,
-        "y": 0.5554848644425122,
-        "z": 0
-      },
-      "dbWorld": {
-        "x": 0.43500917762572633,
-        "y": 0.5554848644425122,
-        "z": 0
-      },
-      "scale": 0.9,
-      "strokeWidth": 14,
-      "rotation": 0,
-      "issueType": "allgemein",
-      "issueSubtypeId": "bc0a7461-75cc-5954-a3d1-573714875e5d",
-      "referenceZoom": 6873.708661079407
-    },
-    {
-      "id": "stamp-mmn386jh-d83a961bfd4508",
-      "stampKey": "ELIN_STS_STECKDOSE_VS_1F",
-      "color": null,
-      "text": "OK",
-      "textOffset": {
-        "x": 58,
-        "y": -30
-      },
-      "worldPos": {
-        "x": 0.4507562488768249,
-        "y": 0.5558510754018404,
-        "z": 0
-      },
-      "dbWorld": {
-        "x": 0.4507562488768249,
-        "y": 0.5558510754018404,
-        "z": 0
-      },
-      "scale": 0.9,
-      "strokeWidth": 14,
-      "rotation": 180,
-      "issueType": "allgemein",
-      "issueSubtypeId": "5d0f2c82-54c9-556e-a1bf-08d81bb25247",
-      "referenceZoom": 8192.000018119814
-    },
-    {
-      "id": "stamp-mmnjkooi-d581d1df78a33",
-      "stampKey": "ELIN_BMA_Brandmelder mit Sirene",
+      "id": "stamp-mmqfdaxr-0845dbb9aad0a8",
+      "stampKey": "_Oblique",
       "color": null,
       "text": "",
       "textOffset": {
@@ -90,21 +12,151 @@
         "y": 0
       },
       "worldPos": {
-        "x": 0.4381909668445587,
-        "y": 0.5473487973211895,
+        "x": 0.4341510534286499,
+        "y": 0.543683052062853,
         "z": 0
       },
       "dbWorld": {
-        "x": 0.4381909668445587,
-        "y": 0.5473487973211895,
+        "x": 0.4341510534286499,
+        "y": 0.543683052062853,
         "z": 0
       },
-      "scale": 0.9,
-      "strokeWidth": 14,
-      "rotation": 0,
+      "scale": 2.15,
+      "strokeWidth": 15,
+      "rotation": 58,
       "issueType": "allgemein",
       "issueSubtypeId": null,
-      "referenceZoom": 8192.000160217285
+      "referenceZoom": 8192.000186920166
+    },
+    {
+      "id": "stamp-mmqfdb4z-ea0e1a733f2e9",
+      "stampKey": "_Oblique",
+      "color": null,
+      "text": "test",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.4464801549911499,
+        "y": 0.5453920364378546,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.4464801549911499,
+        "y": 0.5453920364378546,
+        "z": 0
+      },
+      "scale": 2.15,
+      "strokeWidth": 15,
+      "rotation": 58,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 8192.000186920166
+    },
+    {
+      "id": "stamp-mmqfdbtf-c03387e5a58538",
+      "stampKey": "_Oblique",
+      "color": null,
+      "text": "test",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.4617389440536499,
+        "y": 0.5630922317503723,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.4617389440536499,
+        "y": 0.5630922317503723,
+        "z": 0
+      },
+      "scale": 2.15,
+      "strokeWidth": 11,
+      "rotation": 58,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 8192.000186920166
+    },
+    {
+      "id": "stamp-mmqfdaxr-0845dbb9aad0a8",
+      "stampKey": "_Oblique",
+      "color": null,
+      "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.4219440221786499,
+        "y": 0.5524721145628617,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.4219440221786499,
+        "y": 0.5524721145628617,
+        "z": 0
+      },
+      "scale": 2.15,
+      "strokeWidth": 15,
+      "rotation": 58,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 8192.000186920166
+    },
+    {
+      "id": "stamp-mmqfdb4z-ea0e1a733f2e9",
+      "stampKey": "_Oblique",
+      "color": null,
+      "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.4014362096786499,
+        "y": 0.5467348098753559,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.4014362096786499,
+        "y": 0.5467348098753559,
+        "z": 0
+      },
+      "scale": 6,
+      "strokeWidth": 15,
+      "rotation": 58,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 8192.000186920166
+    },
+    {
+      "id": "stamp-mmqfdbtf-c03387e5a58538",
+      "stampKey": "_Oblique",
+      "color": null,
+      "text": "",
+      "textOffset": {
+        "x": 0,
+        "y": 0
+      },
+      "worldPos": {
+        "x": 0.4415973424911499,
+        "y": 0.5619935989378712,
+        "z": 0
+      },
+      "dbWorld": {
+        "x": 0.4415973424911499,
+        "y": 0.5619935989378712,
+        "z": 0
+      },
+      "scale": 2.15,
+      "strokeWidth": 15,
+      "rotation": 58,
+      "issueType": "allgemein",
+      "issueSubtypeId": null,
+      "referenceZoom": 8192.000186920166
     }
   ]
 }

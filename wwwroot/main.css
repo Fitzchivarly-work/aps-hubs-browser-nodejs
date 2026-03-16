@@ -113,7 +113,7 @@ select {
     box-shadow: none !important;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1400px) {
     #sidebar-toggle {
         display: inline-flex;
         align-items: center;

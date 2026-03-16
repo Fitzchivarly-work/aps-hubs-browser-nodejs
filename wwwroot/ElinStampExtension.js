@@ -810,16 +810,17 @@
         ev.preventDefault();
         ev.stopPropagation();
 
-        const rect = panel.getBoundingClientRect();
-        panel.style.left = `${rect.left}px`;
-        panel.style.top = `${rect.top}px`;
+        const startLeft = panel.offsetLeft;
+        const startTop = panel.offsetTop;
+        panel.style.left = startLeft + 'px';
+        panel.style.top = startTop + 'px';
         panel.style.right = 'auto';
 
         this._panelDragState = {
           startClientX: ev.clientX,
           startClientY: ev.clientY,
-          startLeft: rect.left,
-          startTop: rect.top
+          startLeft: startLeft,
+          startTop: startTop
         };
 
         const onMove = (mv) => {
@@ -880,6 +881,13 @@
           s.scale = v;
           this._updateStampDom(s);
         }
+      });
+      scaleRange.addEventListener('change', () => {
+        const v = clamp(parseFloat(scaleRange.value), this._minScale, this._maxScale);
+        for (const s of this._selected) {
+          s.scale = v;
+          this._updateStampDom(s);
+        }
         this._saveStampsToServer();
       });
 
@@ -892,11 +900,37 @@
           this._refreshStampHtml(s);
           this._updateStampTextDom(s);
         }
+      });
+      strokeWidthRange.addEventListener('change', () => {
+        const raw = Number(strokeWidthRange.value);
+        const v = clamp(raw, 1, 50);
+        for (const s of this._selected) {
+          s.strokeWidth = v;
+          this._refreshStampHtml(s);
+          this._updateStampTextDom(s);
+        }
         this._saveStampsToServer();
       });
 
       const rotationRange = panel.querySelector('[data-role="rotation"]');
       rotationRange.addEventListener('input', () => {
+        const raw = clamp(Number(rotationRange.value), 0, 360);
+        const snapPoints = [0, 90, 180, 270, 360];
+        const snapTolerance = 5;
+        let snapped = raw;
+        for (const p of snapPoints) {
+          if (Math.abs(raw - p) <= snapTolerance) {
+            snapped = p;
+            break;
+          }
+        }
+        rotationRange.value = String(snapped);
+        for (const s of this._selected) {
+          s.rotation = snapped;
+          this._updateStampDom(s);
+        }
+      });
+      rotationRange.addEventListener('change', () => {
         const raw = clamp(Number(rotationRange.value), 0, 360);
         const snapPoints = [0, 90, 180, 270, 360];
         const snapTolerance = 5;
@@ -2199,7 +2233,7 @@
           box-shadow: none !important;
         }
 
-        @media (max-width: 1024px) {
+        @media (max-width: 1400px) {
           .elin-properties-panel {
             left: 10px;
             right: auto;

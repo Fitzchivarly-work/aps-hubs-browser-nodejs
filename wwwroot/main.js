@@ -6,7 +6,7 @@ const sidebarToggle = document.getElementById('sidebar-toggle');
 const body = document.body;
 
 function isTabletLayout() {
-    return window.matchMedia('(max-width: 1024px)').matches;
+    return window.matchMedia('(max-width: 1400px)').matches;
 }
 
 function syncSidebarState() {
