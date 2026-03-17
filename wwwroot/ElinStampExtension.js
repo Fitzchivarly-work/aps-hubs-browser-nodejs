@@ -269,6 +269,8 @@
       this.viewer.addEventListener(Autodesk.Viewing.MODEL_ROOT_LOADED_EVENT, this._onModelLoaded);
 
       this.viewer.container.addEventListener('pointerdown', this._onContainerPointerDownCaptureBound, true);
+      this._onEscapeKeyBound = (ev) => this._onEscapeKey(ev);
+      window.addEventListener('keydown', this._onEscapeKeyBound);
       this.viewer.container.addEventListener('pointerup', this._onContainerPointerUpCaptureBound, true);
       window.addEventListener('keydown', this._onKeyDownBound, true);
 
@@ -309,6 +311,7 @@
       try { this.viewer.unregisterContextMenuCallback(this._ctxMenuId); } catch (e) { /* ignore */ }
 
       this.viewer.container.removeEventListener('pointerdown', this._onContainerPointerDownCaptureBound, true);
+      if (this._onEscapeKeyBound) window.removeEventListener('keydown', this._onEscapeKeyBound);
       this.viewer.container.removeEventListener('pointerup', this._onContainerPointerUpCaptureBound, true);
       window.removeEventListener('keydown', this._onKeyDownBound, true);
 
@@ -684,6 +687,21 @@
           this._togglePicker(false);
         });
 
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'elin-btn elin-btn--ghost elin-stamp-item__cancel';
+        cancelBtn.type = 'button';
+        cancelBtn.title = 'Platzierung abbrechen';
+        cancelBtn.textContent = '✕';
+        cancelBtn.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          if (this._activeStampKey === def.key) {
+            this._setPlacingMode(false);
+            this._activeStampKey = null;
+          }
+        });
+        row.appendChild(cancelBtn);
+
         listEl.appendChild(row);
       }
 
@@ -702,6 +720,15 @@
       }
       if (this._launcherBtn) {
         this._launcherBtn.classList.toggle('is-placing', this._placing);
+      }
+      // Refresh picker list so cancel buttons reflect active state
+      if (this._pickerPanel) this._refreshLibraryUI();
+    }
+
+    _onEscapeKey(ev) {
+      if (ev.key === 'Escape' && this._placing) {
+        this._setPlacingMode(false);
+        this._activeStampKey = null;
       }
     }
 
@@ -727,7 +754,9 @@
         <div class="elin-properties-panel__header" data-role="paneldrag">
           <div class="elin-properties-panel__title">ELIN Prüfung</div>
           <button class="elin-btn elin-btn--toggle" type="button" data-action="multiselect" aria-pressed="false">Mehrfachauswahl</button>
+          <button class="elin-btn elin-btn--ghost elin-panel-collapse-btn" type="button" data-action="collapse" title="Einklappen" aria-expanded="true">–</button>
         </div>
+        <div class="elin-properties-panel__content">
 
         <div class="elin-properties-panel__row">
           <div class="elin-properties-panel__label">Selektiert</div>
@@ -773,12 +802,26 @@
           <button class="elin-btn" data-action="acc">In ACC Aufgabe umwandeln</button>
           <button class="elin-btn elin-btn--danger" data-action="del">Löschen</button>
         </div>
+        </div>
       `;
 
       panel.addEventListener('click', (ev) => {
         const accBtn = safeClosest(ev.target, 'button[data-action="acc"]');
         const delBtn = safeClosest(ev.target, 'button[data-action="del"]');
         const multiBtn = safeClosest(ev.target, 'button[data-action="multiselect"]');
+        const collapseBtn = safeClosest(ev.target, 'button[data-action="collapse"]');
+
+        if (collapseBtn) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          const content = panel.querySelector('.elin-properties-panel__content');
+          const isCollapsed = content.style.display === 'none';
+          content.style.display = isCollapsed ? '' : 'none';
+          collapseBtn.textContent = isCollapsed ? '–' : '+';
+          collapseBtn.setAttribute('aria-expanded', String(isCollapsed));
+          collapseBtn.title = isCollapsed ? 'Einklappen' : 'Ausklappen';
+          return;
+        }
 
         if (multiBtn) {
           ev.preventDefault();
@@ -1515,13 +1558,18 @@
         const additive = !!ev.shiftKey;
         const toggle = !!ev.ctrlKey || !!ev.metaKey;
 
-        if (this._multiSelectMode) {
+        // In multi-select mode: if stamp is already part of the selection,
+        // keep the group intact and start a group-move instead of toggling.
+        if (this._multiSelectMode && this._selected.includes(stamp) && this._selected.length > 1) {
+          // fall through to group-move below without changing selection
+        } else if (this._multiSelectMode) {
           this._toggleSelection(stamp);
           return;
+        } else if (toggle) {
+          this._toggleSelection(stamp);
+        } else {
+          this._selectStamp(stamp, additive);
         }
-
-        if (toggle) this._toggleSelection(stamp);
-        else this._selectStamp(stamp, additive);
 
         // Move single or multi-selected group
         const targets = (this._selected.includes(stamp) && this._selected.length > 0)
@@ -2203,6 +2251,21 @@
           flex-direction: column;
           gap: 10px;
           touch-action: none;
+          max-height: 50vh;
+          overflow-y: auto;
+        }
+        .elin-properties-panel__content {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          overflow-y: auto;
+        }
+        .elin-panel-collapse-btn {
+          margin-left: auto;
+          min-width: 24px;
+          font-size: 14px;
+          line-height: 1;
+          padding: 0 6px;
         }
         .elin-properties-panel__header {
           display: flex;
