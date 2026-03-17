@@ -236,6 +236,7 @@
       this._ignoreNextContainerClick = false;
       this._multiSelectMode = false;
       this._panelDragState = null;
+      this._propsCollapsed = false;
 
       // Config
       this._baseSizePx = Number(this.options.baseSizePx) || 40;
@@ -558,8 +559,13 @@
       btn.addEventListener('click', (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
-        this._togglePicker();
-        this._ensureLibraryLoaded();
+        if (this._placing) {
+          // Zweiter Klick auf den Launcher beendet den Platzierungsmodus.
+          this._setPlacingMode(false);
+        } else {
+          this._togglePicker();
+          this._ensureLibraryLoaded();
+        }
       });
 
       this.viewer.container.appendChild(btn);
@@ -702,6 +708,21 @@
       }
       if (this._launcherBtn) {
         this._launcherBtn.classList.toggle('is-placing', this._placing);
+        this._launcherBtn.textContent = this._placing ? '✕ Abbrechen' : 'ELIN Stempel';
+        this._launcherBtn.title = this._placing ? 'Platzieren beenden (Escape)' : 'Stempel-Bibliothek öffnen';
+      }
+    }
+
+    _setPropertiesCollapsed(on) {
+      this._propsCollapsed = !!on;
+      if (!this._propsPanel) return;
+
+      this._propsPanel.classList.toggle('is-collapsed', this._propsCollapsed);
+      const btn = this._propsPanel.querySelector('button[data-action="collapse"]');
+      if (btn) {
+        btn.setAttribute('aria-pressed', String(this._propsCollapsed));
+        btn.setAttribute('aria-label', this._propsCollapsed ? 'Panel maximieren' : 'Panel minimieren');
+        btn.textContent = this._propsCollapsed ? '▢' : '—';
       }
     }
 
@@ -726,52 +747,57 @@
       panel.innerHTML = `
         <div class="elin-properties-panel__header" data-role="paneldrag">
           <div class="elin-properties-panel__title">ELIN Prüfung</div>
-          <button class="elin-btn elin-btn--toggle" type="button" data-action="multiselect" aria-pressed="false">Mehrfachauswahl</button>
+          <div class="elin-properties-panel__header-actions">
+            <button class="elin-btn elin-btn--toggle" type="button" data-action="multiselect" aria-pressed="false">Mehrfachauswahl</button>
+            <button class="elin-btn elin-btn--ghost elin-btn--panel-collapse" type="button" data-action="collapse" aria-pressed="false" aria-label="Panel minimieren">—</button>
+          </div>
         </div>
 
-        <div class="elin-properties-panel__row">
-          <div class="elin-properties-panel__label">Selektiert</div>
-          <div class="elin-properties-panel__value" data-role="selcount">0</div>
-        </div>
+        <div class="elin-properties-panel__content" data-role="panelcontent">
+          <div class="elin-properties-panel__row">
+            <div class="elin-properties-panel__label">Selektiert</div>
+            <div class="elin-properties-panel__value" data-role="selcount">0</div>
+          </div>
 
-        <div class="elin-properties-panel__row">
-          <div class="elin-properties-panel__label">ACC Typ</div>
-          <select class="elin-select" data-role="issuetype"></select>
-        </div>
+          <div class="elin-properties-panel__row">
+            <div class="elin-properties-panel__label">ACC Typ</div>
+            <select class="elin-select" data-role="issuetype"></select>
+          </div>
 
-        <div class="elin-properties-panel__row">
-          <div class="elin-properties-panel__label">Status-Farbe</div>
-          <select class="elin-select" data-role="stampcolor">
-            <option value="#00B050">OK</option>
-            <option value="#C00000" selected>Korrektur</option>
-            <option value="#FFC000">Aufpassen</option>
-            <option value="#000000">Zurück</option>
-          </select>
-        </div>
+          <div class="elin-properties-panel__row">
+            <div class="elin-properties-panel__label">Status-Farbe</div>
+            <select class="elin-select" data-role="stampcolor">
+              <option value="#00B050">OK</option>
+              <option value="#C00000" selected>Korrektur</option>
+              <option value="#FFC000">Aufpassen</option>
+              <option value="#000000">Zurück</option>
+            </select>
+          </div>
 
-        <div class="elin-properties-panel__row">
-          <div class="elin-properties-panel__label">Text</div>
-          <input class="elin-input" type="text" placeholder="Optionaler Text..." data-role="stamptext" />
-        </div>
+          <div class="elin-properties-panel__row">
+            <div class="elin-properties-panel__label">Text</div>
+            <input class="elin-input" type="text" placeholder="Optionaler Text..." data-role="stamptext" />
+          </div>
 
-        <div class="elin-properties-panel__row">
-          <div class="elin-properties-panel__label">Skalierung</div>
-          <input class="elin-range" type="range" min="0.25" max="6" step="0.05" value="1" data-role="scale" />
-        </div>
+          <div class="elin-properties-panel__row">
+            <div class="elin-properties-panel__label">Skalierung</div>
+            <input class="elin-range" type="range" min="0.25" max="6" step="0.05" value="1" data-role="scale" />
+          </div>
 
-        <div class="elin-properties-panel__row">
-          <div class="elin-properties-panel__label">Liniendicke</div>
-          <input class="elin-range" type="range" min="1" max="50" step="1" value="15" data-role="strokewidth" />
-        </div>
+          <div class="elin-properties-panel__row">
+            <div class="elin-properties-panel__label">Liniendicke</div>
+            <input class="elin-range" type="range" min="1" max="50" step="1" value="15" data-role="strokewidth" />
+          </div>
 
-        <div class="elin-properties-panel__row">
-          <div class="elin-properties-panel__label">Rotation</div>
-          <input class="elin-range" type="range" min="0" max="360" step="1" value="0" data-role="rotation" />
-        </div>
+          <div class="elin-properties-panel__row">
+            <div class="elin-properties-panel__label">Rotation</div>
+            <input class="elin-range" type="range" min="0" max="360" step="1" value="0" data-role="rotation" />
+          </div>
 
-        <div class="elin-properties-panel__actions">
-          <button class="elin-btn" data-action="acc">In ACC Aufgabe umwandeln</button>
-          <button class="elin-btn elin-btn--danger" data-action="del">Löschen</button>
+          <div class="elin-properties-panel__actions">
+            <button class="elin-btn" data-action="acc">In ACC Aufgabe umwandeln</button>
+            <button class="elin-btn elin-btn--danger" data-action="del">Löschen</button>
+          </div>
         </div>
       `;
 
@@ -779,6 +805,14 @@
         const accBtn = safeClosest(ev.target, 'button[data-action="acc"]');
         const delBtn = safeClosest(ev.target, 'button[data-action="del"]');
         const multiBtn = safeClosest(ev.target, 'button[data-action="multiselect"]');
+        const collapseBtn = safeClosest(ev.target, 'button[data-action="collapse"]');
+
+        if (collapseBtn) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          this._setPropertiesCollapsed(!this._propsCollapsed);
+          return;
+        }
 
         if (multiBtn) {
           ev.preventDefault();
@@ -918,6 +952,7 @@
       this.viewer.container.appendChild(panel);
       this._propsPanel = panel;
       this._setMultiSelectMode(false);
+      this._setPropertiesCollapsed(window.innerWidth <= 1024);
       this._updatePropertiesPanel();
     }
 
@@ -2000,7 +2035,7 @@
 
         .elin-launcher-btn {
           position: absolute;
-          top: 10px;
+          top: max(10px, env(safe-area-inset-top));
           left: 10px;
           z-index: 10002;
           border: 1px solid #c7c7c7;
@@ -2013,8 +2048,14 @@
         }
         .elin-launcher-btn:hover { background: #f5f5f5; }
         .elin-launcher-btn.is-placing {
-          border-color: #0096ff;
-          box-shadow: 0 0 0 3px rgba(0,150,255,0.15), 0 4px 16px rgba(0,0,0,0.12);
+          background: #ff4d00;
+          color: #ffffff;
+          border-color: #cc3d00;
+          box-shadow: 0 0 0 3px rgba(255,77,0,0.25), 0 4px 16px rgba(0,0,0,0.18);
+          font-weight: 700;
+        }
+        .elin-launcher-btn.is-placing:hover {
+          background: #e64400;
         }
 
         /* Stamp overlay */
@@ -2169,6 +2210,8 @@
           flex-direction: column;
           gap: 10px;
           touch-action: none;
+          max-height: min(78vh, 640px);
+          overflow: hidden;
         }
         .elin-properties-panel__header {
           display: flex;
@@ -2180,6 +2223,31 @@
         }
         .elin-properties-panel__header:active { cursor: grabbing; }
         .elin-properties-panel__title { font-weight: 700; font-size: 13px; }
+        .elin-properties-panel__header-actions { display: flex; align-items: center; gap: 6px; }
+        .elin-btn--panel-collapse {
+          width: 30px;
+          height: 28px;
+          border: 1px solid #c7c7c7;
+          border-radius: 6px;
+          padding: 0;
+          font-size: 16px;
+          line-height: 1;
+        }
+        .elin-properties-panel__content {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          min-height: 0;
+          overflow: auto;
+          padding-right: 2px;
+        }
+        .elin-properties-panel.is-collapsed {
+          width: min(240px, calc(100vw - 20px));
+          max-height: none;
+        }
+        .elin-properties-panel.is-collapsed .elin-properties-panel__content {
+          display: none;
+        }
         .elin-properties-panel__row {
           display: grid;
           grid-template-columns: 90px 1fr;
@@ -2206,11 +2274,15 @@
             bottom: 10px;
             top: auto;
             width: min(360px, calc(100vw - 20px));
+            max-height: min(62vh, 500px);
           }
 
           .elin-launcher-btn {
-            top: 64px;
+            top: max(10px, env(safe-area-inset-top));
+            left: 10px;
           }
+
+          .elin-properties-panel__title { font-size: 12px; }
         }
       `;
       document.head.appendChild(style);
