@@ -561,6 +561,14 @@
       btn.addEventListener('click', (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
+        // Toggle placing mode directly from the launcher button on tablet.
+        if (this._placing) {
+          this._setPlacingMode(false);
+          this._activeStampKey = null;
+          if (this._pickerPanel && this._pickerPanel.style.display !== 'none') this._togglePicker(false);
+          return;
+        }
+
         this._togglePicker();
         this._ensureLibraryLoaded();
       });
@@ -687,21 +695,6 @@
           this._togglePicker(false);
         });
 
-        const cancelBtn = document.createElement('button');
-        cancelBtn.className = 'elin-btn elin-btn--ghost elin-stamp-item__cancel';
-        cancelBtn.type = 'button';
-        cancelBtn.title = 'Platzierung abbrechen';
-        cancelBtn.textContent = '✕';
-        cancelBtn.addEventListener('click', (ev) => {
-          ev.preventDefault();
-          ev.stopPropagation();
-          if (this._activeStampKey === def.key) {
-            this._setPlacingMode(false);
-            this._activeStampKey = null;
-          }
-        });
-        row.appendChild(cancelBtn);
-
         listEl.appendChild(row);
       }
 
@@ -720,9 +713,8 @@
       }
       if (this._launcherBtn) {
         this._launcherBtn.classList.toggle('is-placing', this._placing);
+        this._launcherBtn.title = this._placing ? 'Platzierungsmodus abbrechen' : 'Stempel-Bibliothek öffnen';
       }
-      // Refresh picker list so cancel buttons reflect active state
-      if (this._pickerPanel) this._refreshLibraryUI();
     }
 
     _onEscapeKey(ev) {
@@ -814,12 +806,10 @@
         if (collapseBtn) {
           ev.preventDefault();
           ev.stopPropagation();
-          const content = panel.querySelector('.elin-properties-panel__content');
-          const isCollapsed = content.style.display === 'none';
-          content.style.display = isCollapsed ? '' : 'none';
-          collapseBtn.textContent = isCollapsed ? '–' : '+';
-          collapseBtn.setAttribute('aria-expanded', String(isCollapsed));
-          collapseBtn.title = isCollapsed ? 'Einklappen' : 'Ausklappen';
+          const isCollapsed = panel.classList.toggle('is-collapsed');
+          collapseBtn.textContent = isCollapsed ? '+' : '–';
+          collapseBtn.setAttribute('aria-expanded', String(!isCollapsed));
+          collapseBtn.title = isCollapsed ? 'Ausklappen' : 'Einklappen';
           return;
         }
 
@@ -2254,11 +2244,21 @@
           max-height: 50vh;
           overflow-y: auto;
         }
+        .elin-properties-panel.is-collapsed {
+          max-height: none;
+          overflow: hidden;
+          gap: 0;
+          padding-top: 8px;
+          padding-bottom: 8px;
+        }
         .elin-properties-panel__content {
           display: flex;
           flex-direction: column;
           gap: 10px;
           overflow-y: auto;
+        }
+        .elin-properties-panel.is-collapsed .elin-properties-panel__content {
+          display: none;
         }
         .elin-panel-collapse-btn {
           margin-left: auto;
